@@ -1,0 +1,117 @@
+import { useEffect, useState } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const links = [
+  { to: '/import', label: 'Import Center' },
+  { to: '/activities', label: 'Activities' },
+  { to: '/analytics', label: 'Analytics Lab' },
+  { to: '/training-plan', label: 'Training Plan' },
+  { to: '/correlations', label: 'Correlation Builder' },
+  { to: '/export', label: 'Export CSV' },
+  { to: '/settings', label: 'Settings' },
+];
+
+export function AppLayout() {
+  const location = useLocation();
+  const { user, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  const navContent = (
+    <nav className='grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1'>
+      {links.map((link) => {
+        const active = location.pathname.startsWith(link.to);
+        return (
+          <Link
+            className={`block truncate rounded-xl px-3 py-2 text-sm transition ${
+              active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
+            }`}
+            key={link.to}
+            to={link.to}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
+  return (
+    <div className='min-h-screen bg-grain bg-[size:14px_14px]'>
+      <div className='mx-auto max-w-[1400px] px-3 py-4 sm:px-4 sm:py-6 lg:px-8'>
+        <header className='mb-4 flex items-center justify-between rounded-2xl border border-black/10 bg-panel p-3 shadow-panel lg:hidden'>
+          <div>
+            <p className='text-lg font-semibold'>StravHat</p>
+            <p className='mt-1 text-xs text-muted'>
+              Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
+            </p>
+          </div>
+          <button
+            className='inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/20 text-xl hover:bg-black/5'
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            type='button'
+            aria-label='Ouvrir le menu'
+            title='Menu'
+          >
+            {mobileMenuOpen ? '×' : '☰'}
+          </button>
+        </header>
+
+        {mobileMenuOpen ? (
+          <>
+            <button
+              aria-label='Fermer le menu'
+              className='fixed inset-0 z-40 bg-black/35 lg:hidden'
+              onClick={() => setMobileMenuOpen(false)}
+              type='button'
+            />
+            <aside className='fixed inset-y-0 left-0 z-50 w-[min(86vw,320px)] rounded-r-2xl border-r border-black/10 bg-panel p-4 shadow-panel lg:hidden'>
+              <div className='mb-6'>
+                <p className='text-lg font-semibold'>StravHat</p>
+                <p className='mt-1 text-xs text-muted'>
+                  Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
+                </p>
+              </div>
+              {navContent}
+              <button
+                className='mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-black/20 px-3 text-sm hover:bg-black/5'
+                onClick={logout}
+                type='button'
+              >
+                Logout
+              </button>
+            </aside>
+          </>
+        ) : null}
+
+        <div className='grid gap-4 sm:gap-6 lg:grid-cols-[250px_minmax(0,1fr)]'>
+          <aside className='hidden min-w-0 rounded-2xl border border-black/10 bg-panel p-4 shadow-panel lg:sticky lg:top-6 lg:block lg:h-[calc(100vh-3rem)]'>
+            <div className='mb-6'>
+              <p className='text-xs uppercase tracking-wide text-muted'></p>
+              <p className='text-lg font-semibold'>StravHat</p>
+              <p className='mt-2 text-xs text-muted'>
+                Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
+              </p>
+            </div>
+            {navContent}
+            <button
+              className='mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-black/20 px-3 text-sm hover:bg-black/5'
+              onClick={logout}
+              type='button'
+            >
+              Logout
+            </button>
+          </aside>
+          <main className='min-w-0 space-y-6 pb-8'>
+            <Outlet />
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
