@@ -14,7 +14,7 @@ if (existsSync(projectEnvPath)) {
 }
 
 const envSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(3001),
+  PORT: z.coerce.number().int().min(0).max(65535).default(3001),
   WEB_URL: z.string().url().default('http://localhost:5173'),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(8),
