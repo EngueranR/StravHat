@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate --schema prisma/schema.prisma && tsc -p tsconfig.json",
+    "build": "bunx prisma generate --schema prisma/schema.prisma && tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
     "prisma:generate": "prisma generate",
