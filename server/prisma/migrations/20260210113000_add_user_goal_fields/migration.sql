@@ -1,0 +1,4 @@
+ALTER TABLE "User"
+ADD COLUMN "goalType" TEXT,
+ADD COLUMN "goalDistanceKm" DOUBLE PRECISION,
+ADD COLUMN "goalTimeSec" INTEGER;

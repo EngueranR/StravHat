@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String      @id @default(cuid())
+  email          String?     @unique
+  stravaAthleteId Int?       @unique
+  hrMax          Int         @default(190)
+  age            Int?
+  weightKg       Float?
+  heightCm       Float?
+  goalType       String?
+  goalDistanceKm Float?
+  goalTimeSec    Int?
+  speedUnit      String      @default("kmh")
+  distanceUnit   String      @default("km")
+  elevationUnit  String      @default("m")
+  cadenceUnit    String      @default("rpm")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  token          StravaToken?
+  activities     Activity[]
+  chartSnapshots ChartSnapshot[]
+  trainingPlans  TrainingPlan[]
+}
+
+model StravaToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  updatedAt    DateTime @updatedAt
+}
+
+model Activity {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stravaActivityId     String   @unique
+  name                 String
+  type                 String
+  sportType            String
+  startDate            DateTime
+  startDateLocal       DateTime
+  timezone             String
+  distance             Float
+  movingTime           Int
+  elapsedTime          Int
+  totalElevationGain   Float
+  averageSpeed         Float
+  maxSpeed             Float
+  averageHeartrate     Float?
+  maxHeartrate         Float?
+  averageWatts         Float?
+  maxWatts             Float?
+  weightedAverageWatts Float?
+  kilojoules           Float?
+  calories             Float?
+  averageCadence       Float?
+  strideLength         Float?
+  groundContactTime    Float?
+  verticalOscillation  Float?
+  sufferScore          Float?
+  trainer              Boolean
+  commute              Boolean
+  manual               Boolean
+  hasHeartrate         Boolean
+  importedAt           DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId, startDate(sort: Desc)])
+}
+
+model ChartSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chartType  String
+  filterHash String
+  payload    Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, chartType, filterHash])
+  @@index([userId, chartType, updatedAt(sort: Desc)])
+}
+
+model TrainingPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  goal        String
+  weeks       Int
+  startDate   DateTime
+  raceDate    DateTime
+  daysToRace  Int
+  overview    String
+  methodology String
+  warnings    Json
+  plan        Json
+  sourceModel String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, updatedAt(sort: Desc)])
+}

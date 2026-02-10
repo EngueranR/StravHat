@@ -1,0 +1,4 @@
+ALTER TABLE "Activity"
+ADD COLUMN "strideLength" DOUBLE PRECISION,
+ADD COLUMN "groundContactTime" DOUBLE PRECISION,
+ADD COLUMN "verticalOscillation" DOUBLE PRECISION;

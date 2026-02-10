@@ -1,0 +1,5 @@
+ALTER TABLE "User"
+ADD COLUMN "speedUnit" TEXT NOT NULL DEFAULT 'kmh',
+ADD COLUMN "distanceUnit" TEXT NOT NULL DEFAULT 'km',
+ADD COLUMN "elevationUnit" TEXT NOT NULL DEFAULT 'm',
+ADD COLUMN "cadenceUnit" TEXT NOT NULL DEFAULT 'rpm';
