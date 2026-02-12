@@ -15,7 +15,7 @@
     "railway:build:server": "bun run --filter=@stravhat/server build",
     "railway:start:server": "bun run --filter=@stravhat/server start",
     "railway:build:web": "bun run --filter=@stravhat/web build",
-    "railway:start:web": "bun run --filter=@stravhat/web start:railway",
+    "railway:start:web": "bun run --filter=@stravhat/web start",
     "railway:migrate": "bunx prisma migrate deploy --schema server/prisma/schema.prisma"
   }
 }
