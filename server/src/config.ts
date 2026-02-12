@@ -13,9 +13,34 @@ if (existsSync(projectEnvPath)) {
   config({ override: true });
 }
 
+const normalizedString = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+};
+
+const normalizeWebUrl = (value: unknown) => {
+  const normalized = normalizedString(value);
+  if (typeof normalized !== 'string') {
+    return normalized;
+  }
+
+  if (normalized === '*') {
+    return normalized;
+  }
+
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return '*';
+  }
+};
+
 const envSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(3001),
-  WEB_URL: z.string().url().default('http://localhost:5173'),
+  WEB_URL: z.preprocess(normalizeWebUrl, z.string().default('*')),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(8),
   STRAVA_CLIENT_ID: z.string().min(1),

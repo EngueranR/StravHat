@@ -11,7 +11,7 @@ const app = Fastify({
 });
 
 await app.register(cors, {
-  origin: env.WEB_URL,
+  origin: env.WEB_URL === "*" ? true : env.WEB_URL,
   credentials: true,
 });
 
