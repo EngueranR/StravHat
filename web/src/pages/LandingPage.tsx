@@ -36,31 +36,41 @@ export function LandingPage() {
   return (
     <div className='flex min-h-screen items-center justify-center p-4'>
       <Card>
-        <div className='mx-auto w-full max-w-xl space-y-6'>
-          <SectionHeader
-            title='StravHat'
-            subtitle='Connectez votre compte Strava pour commencer a explorer vos donnees et reveler des tendances cachees.'
-            collapsed={collapsed}
-            onToggleCollapse={() => setCollapsed((prev) => !prev)}
-          />
-          {collapsed ? (
-            <p className='text-xs text-muted'>Section repliee.</p>
-          ) : (
-            <>
-              <button
-                className={`w-full py-3 ${primaryButtonClass}`}
-                disabled={loading}
-                onClick={startStravaAuth}
-                type='button'
-              >
-                {loading ? 'Redirection...' : 'Connect Strava'}
-              </button>
+        <div className='mx-auto w-full max-w-xl space-y-5'>
+          <div className='space-y-1'>
+            <h1 className='text-2xl font-semibold tracking-tight'>StravHat</h1>
+            <p className='text-xs text-muted'>
+              Explore tes donnees Strava et detecte les tendances qui font progresser.
+            </p>
+          </div>
 
-              {error ?
-                <p className='text-sm text-red-700'>{error}</p>
-              : null}
-            </>
-          )}
+          <div className='rounded-xl border border-black/10 bg-white/60 p-4'>
+            <SectionHeader
+              title='Connexion Strava'
+              subtitle='Autorise l acces a ton compte pour importer tes activites.'
+              className='mb-0'
+              collapsed={collapsed}
+              onToggleCollapse={() => setCollapsed((prev) => !prev)}
+            />
+            {collapsed ? (
+              <p className='mt-3 text-xs text-muted'>Section repliee.</p>
+            ) : (
+              <div className='mt-3 space-y-3'>
+                <button
+                  className={`w-full py-3 ${primaryButtonClass}`}
+                  disabled={loading}
+                  onClick={startStravaAuth}
+                  type='button'
+                >
+                  {loading ? 'Redirection...' : 'Se connecter a Strava'}
+                </button>
+
+                {error ?
+                  <p className='text-sm text-red-700'>{error}</p>
+                : null}
+              </div>
+            )}
+          </div>
         </div>
       </Card>
     </div>

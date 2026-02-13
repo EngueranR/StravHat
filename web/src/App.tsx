@@ -14,26 +14,31 @@ import { TrainingPlanPage } from "./pages/TrainingPlanPage";
 
 export function App() {
   return (
-    <Routes>
-      <Route element={<LandingPage />} path="/login" />
-      <Route element={<OAuthCallbackPage />} path="/auth/callback" />
+    <>
+      <Routes>
+        <Route element={<LandingPage />} path="/login" />
+        <Route element={<OAuthCallbackPage />} path="/auth/callback" />
 
-      <Route element={<ProtectedRoutes />}>
-        <Route element={<AppLayout />}>
-          <Route element={<ImportPage />} path="/import" />
-          <Route element={<ActivitiesPage />} path="/activities" />
-          <Route element={<ActivityDetailPage />} path="/activities/:id" />
-          <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
-          <Route element={<AnalyticsPage />} path="/analytics" />
-          <Route element={<TrainingPlanPage />} path="/training-plan" />
-          <Route element={<CorrelationBuilderPage />} path="/correlations" />
-          <Route element={<ExportPage />} path="/export" />
-          <Route element={<SettingsPage />} path="/settings" />
+        <Route element={<ProtectedRoutes />}>
+          <Route element={<AppLayout />}>
+            <Route element={<ImportPage />} path="/import" />
+            <Route element={<ActivitiesPage />} path="/activities" />
+            <Route element={<ActivityDetailPage />} path="/activities/:id" />
+            <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
+            <Route element={<AnalyticsPage />} path="/analytics" />
+            <Route element={<TrainingPlanPage />} path="/training-plan" />
+            <Route element={<CorrelationBuilderPage />} path="/correlations" />
+            <Route element={<ExportPage />} path="/export" />
+            <Route element={<SettingsPage />} path="/settings" />
+          </Route>
         </Route>
-      </Route>
 
-      <Route element={<RootRedirect />} path="*" />
-    </Routes>
+        <Route element={<RootRedirect />} path="*" />
+      </Routes>
+      <p className="pointer-events-none fixed bottom-2 right-3 z-50 text-[11px] text-black/55">
+        © EngueranR
+      </p>
+    </>
   );
 }
 

@@ -1,4 +1,22 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+function normalizeApiBaseUrl(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes('${{')) {
+    return null;
+  }
+
+  const unquoted = trimmed.replace(/^['"]|['"]$/g, '');
+  return unquoted.replace(/\/+$/, '');
+}
+
+const configuredApiUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
+const API_URL =
+  configuredApiUrl ?? (
+    import.meta.env.DEV ? 'http://localhost:3001/api' : `${window.location.origin}/api`
+  );
 
 interface ApiOptions {
   method?: string;
