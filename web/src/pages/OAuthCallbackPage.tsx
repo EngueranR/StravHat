@@ -9,7 +9,6 @@ export function OAuthCallbackPage() {
   const navigate = useNavigate();
   const { loginWithStravaCode, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -75,12 +74,8 @@ export function OAuthCallbackPage() {
             title="Connexion Strava en cours..."
             subtitle="Echange du code OAuth contre un token de session."
             className="mb-0"
-            collapsed={collapsed}
-            onToggleCollapse={() => setCollapsed((prev) => !prev)}
           />
-          {collapsed ? (
-            <p className="text-xs text-muted">Section repliee.</p>
-          ) : error ? (
+          {error ? (
             <>
               <p className="text-sm text-red-700">{error}</p>
               <Link className={`inline-flex ${secondaryButtonClass}`} to="/login">

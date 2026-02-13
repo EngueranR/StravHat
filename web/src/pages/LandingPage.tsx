@@ -10,7 +10,6 @@ export function LandingPage() {
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
 
   if (isAuthenticated) {
     return <Navigate replace to='/analytics' />;
@@ -40,7 +39,8 @@ export function LandingPage() {
           <div className='space-y-1'>
             <h1 className='text-2xl font-semibold tracking-tight'>StravHat</h1>
             <p className='text-xs text-muted'>
-              Explore tes donnees Strava et detecte les tendances qui font progresser.
+              Explore tes donnees Strava et detecte les tendances qui font
+              progresser.
             </p>
           </div>
 
@@ -49,27 +49,19 @@ export function LandingPage() {
               title='Connexion Strava'
               subtitle='Autorise l acces a ton compte pour importer tes activites.'
               className='mb-0'
-              collapsed={collapsed}
-              onToggleCollapse={() => setCollapsed((prev) => !prev)}
             />
-            {collapsed ? (
-              <p className='mt-3 text-xs text-muted'>Section repliee.</p>
-            ) : (
-              <div className='mt-3 space-y-3'>
-                <button
-                  className={`w-full py-3 ${primaryButtonClass}`}
-                  disabled={loading}
-                  onClick={startStravaAuth}
-                  type='button'
-                >
-                  {loading ? 'Redirection...' : 'Se connecter a Strava'}
-                </button>
+            <div className='mt-3 space-y-3'>
+              <button
+                className={`w-full py-3 ${primaryButtonClass}`}
+                disabled={loading}
+                onClick={startStravaAuth}
+                type='button'
+              >
+                {loading ? 'Redirection...' : 'Se connecter a Strava'}
+              </button>
 
-                {error ?
-                  <p className='text-sm text-red-700'>{error}</p>
-                : null}
-              </div>
-            )}
+              {error ? <p className='text-sm text-red-700'>{error}</p> : null}
+            </div>
           </div>
         </div>
       </Card>
