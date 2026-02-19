@@ -1,6 +1,7 @@
 export interface User {
   id: string;
   email: string | null;
+  isApproved?: boolean;
   stravaAthleteId: number | null;
   hrMax: number;
   age: number | null;
@@ -16,6 +17,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   connectedToStrava?: boolean;
+  hasCustomStravaCredentials?: boolean;
 }
 
 export interface Activity {

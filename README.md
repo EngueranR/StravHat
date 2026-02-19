@@ -18,8 +18,25 @@ Monorepo React + Fastify + Prisma pour importer et analyser toutes les activites
    - `npm run dev`
 
 ## OAuth Strava
-- Secret Strava uniquement cote serveur.
-- Flux: `GET /auth/strava/start` -> callback web -> `POST /auth/strava/exchange`.
+- Credentials Strava stockes en DB par utilisateur (chiffres), plus de `STRAVA_CLIENT_ID/SECRET/REDIRECT_URI` dans `.env`.
+- Flux: login applicatif (`/auth/register`, `/auth/login`) -> config credentials Strava dans l'app -> `GET /auth/strava/start` -> callback web -> `POST /auth/strava/exchange`.
+- Les nouveaux comptes sont en attente de validation (`isApproved=false`) jusqu'a whitelist manuelle en DB.
+- Les credentials Strava custom utilisateur et les tokens OAuth Strava sont stockes chiffres en base (page `Strava Credentials`).
+- Les actions sensibles (auth/credentials/OAuth) sont auditees dans la table `SecurityEvent`.
+
+## Securite
+- Hash mot de passe: `scrypt` + `AUTH_PASSWORD_PEPPER`.
+- Chiffrement donnees sensibles: AES-256-GCM (credentials Strava + tokens OAuth Strava).
+- Anti brute-force: rate-limit Redis persistant (fallback memoire si Redis indisponible) + lockout sur login/endpoints sensibles.
+- Audit securite: events critiques en DB (`SecurityEvent`) avec IP hachee (HMAC).
+- Headers HTTP durcis + reponses API non-cacheables (`Cache-Control: no-store`).
+- Le rate-limit s'applique uniquement aux endpoints sensibles auth/credentials/OAuth et ne bloque pas les routes d'import Strava ni d'analyse IA.
+
+### Whitelist manuelle (DB)
+- Exemple approbation:
+  - `UPDATE "User" SET "isApproved" = true WHERE "email" = 'user@example.com';`
+- Exemple revoke:
+  - `UPDATE "User" SET "isApproved" = false WHERE "email" = 'user@example.com';`
 
 ## Deploy Railway (Monorepo)
 Le projet se deploie avec 3 services Railway:
@@ -34,10 +51,12 @@ Le projet se deploie avec 3 services Railway:
   - `DATABASE_URL` -> URL Postgres Railway
   - `WEB_URL` -> URL publique du frontend (ex: `https://web-xxx.up.railway.app`)
     - option temporaire test: `WEB_URL=*` (CORS ouvert, a eviter en prod)
+  - `REDIS_URL` (recommande en prod pour rate-limit persistant multi-instance)
   - `JWT_SECRET`
-  - `STRAVA_CLIENT_ID`
-  - `STRAVA_CLIENT_SECRET`
-  - `STRAVA_REDIRECT_URI` -> `https://<frontend>/auth/callback`
+  - `JWT_TTL` (ex: `12h`)
+  - `AUDIT_LOG_KEY` (cle HMAC pour hash des IP dans les logs d audit)
+  - `AUTH_PASSWORD_PEPPER` (long secret random)
+  - `STRAVA_CREDENTIALS_ENCRYPTION_KEY` (base64 32 bytes)
   - `HF_API_KEY` (optionnel)
   - `HF_MODEL` (optionnel)
   - `HF_MAX_TOKENS` (optionnel)

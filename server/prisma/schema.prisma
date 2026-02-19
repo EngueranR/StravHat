@@ -8,36 +8,48 @@ datasource db {
 }
 
 model User {
-  id             String      @id @default(cuid())
-  email          String?     @unique
-  stravaAthleteId Int?       @unique
-  hrMax          Int         @default(190)
-  age            Int?
-  weightKg       Float?
-  heightCm       Float?
-  goalType       String?
-  goalDistanceKm Float?
-  goalTimeSec    Int?
-  speedUnit      String      @default("kmh")
-  distanceUnit   String      @default("km")
-  elevationUnit  String      @default("m")
-  cadenceUnit    String      @default("rpm")
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  token          StravaToken?
-  activities     Activity[]
-  chartSnapshots ChartSnapshot[]
-  trainingPlans  TrainingPlan[]
+  id                    String          @id @default(cuid())
+  email                 String?         @unique
+  passwordHash          String?
+  isApproved            Boolean         @default(false)
+  failedLoginAttempts   Int             @default(0)
+  lockedUntil           DateTime?
+  lastLoginAt           DateTime?
+  tokenVersion          Int             @default(1)
+  stravaClientIdEnc     String?
+  stravaClientSecretEnc String?
+  stravaRedirectUriEnc  String?
+  stravaAthleteId       Int?            @unique
+  hrMax                 Int             @default(190)
+  age                   Int?
+  weightKg              Float?
+  heightCm              Float?
+  goalType              String?
+  goalDistanceKm        Float?
+  goalTimeSec           Int?
+  speedUnit             String          @default("kmh")
+  distanceUnit          String          @default("km")
+  elevationUnit         String          @default("m")
+  cadenceUnit           String          @default("rpm")
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  token                 StravaToken?
+  activities            Activity[]
+  chartSnapshots        ChartSnapshot[]
+  trainingPlans         TrainingPlan[]
+  securityEvents        SecurityEvent[]
 }
 
 model StravaToken {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken  String
-  refreshToken String
-  expiresAt    DateTime
-  updatedAt    DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken          String
+  refreshToken         String
+  oauthClientIdEnc     String?
+  oauthClientSecretEnc String?
+  expiresAt            DateTime
+  updatedAt            DateTime @updatedAt
 }
 
 model Activity {
@@ -112,4 +124,18 @@ model TrainingPlan {
   updatedAt   DateTime @updatedAt
 
   @@index([userId, updatedAt(sort: Desc)])
+}
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  eventType String
+  success   Boolean
+  ipHash    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
 }

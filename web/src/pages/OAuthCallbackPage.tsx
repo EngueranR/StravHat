@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 export function OAuthCallbackPage() {
   const navigate = useNavigate();
-  const { loginWithStravaCode, token } = useAuth();
+  const { connectStravaWithCode, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
@@ -18,8 +18,8 @@ export function OAuthCallbackPage() {
     startedRef.current = true;
 
     const run = async () => {
-      if (token) {
-        navigate("/import", { replace: true });
+      if (!token) {
+        setError("Session applicative absente. Connecte-toi d'abord.");
         return;
       }
 
@@ -52,7 +52,7 @@ export function OAuthCallbackPage() {
       sessionStorage.setItem(lockKey, "pending");
 
       try {
-        await loginWithStravaCode(code, `${window.location.origin}/auth/callback`);
+        await connectStravaWithCode(code);
         sessionStorage.setItem(lockKey, "done");
         navigate("/import", { replace: true });
       } catch (err) {
@@ -64,7 +64,7 @@ export function OAuthCallbackPage() {
     run().catch(() => {
       setError("Erreur inconnue");
     });
-  }, [loginWithStravaCode, navigate, token]);
+  }, [connectStravaWithCode, navigate, token]);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">

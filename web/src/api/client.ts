@@ -41,7 +41,21 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Request failed (${response.status})`);
+    if (text) {
+      let parsedMessage: string | null = null;
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        if (typeof parsed.message === 'string' && parsed.message.trim().length > 0) {
+          parsedMessage = parsed.message;
+        }
+      } catch {
+        // Keep raw response body if payload is not JSON.
+      }
+
+      throw new Error(parsedMessage ?? text);
+    }
+
+    throw new Error(`Request failed (${response.status})`);
   }
 
   return (await response.json()) as T;

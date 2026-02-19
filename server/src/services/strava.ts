@@ -1,21 +1,34 @@
 import { type Activity } from "@prisma/client";
-import { env } from "../config.js";
 import { prisma } from "../db.js";
 import type { StravaActivity, StravaTokenResponse } from "../types/strava.js";
 import { estimateCalories } from "../utils/calories.js";
 import { resolveRunDynamics } from "../utils/runDynamics.js";
+import {
+  decryptSecret,
+  decryptSecretIfEncrypted,
+  encryptSecret,
+  isEncryptedSecret,
+} from "../utils/security.js";
 
 const STRAVA_OAUTH_URL = "https://www.strava.com/oauth/token";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
+
+interface StravaAppCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+export class MissingStravaCredentialsError extends Error {}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function exchangeToken(params: Record<string, string>) {
+async function exchangeToken(params: Record<string, string>, credentials: StravaAppCredentials) {
   const body = new URLSearchParams({
-    client_id: env.STRAVA_CLIENT_ID,
-    client_secret: env.STRAVA_CLIENT_SECRET,
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
     ...params,
   });
 
@@ -35,13 +48,62 @@ async function exchangeToken(params: Record<string, string>) {
   return (await response.json()) as StravaTokenResponse;
 }
 
-export function stravaAuthorizeUrl(redirectUri?: string, state?: string) {
+export async function resolveUserStravaAppCredentials(
+  userId: string,
+): Promise<StravaAppCredentials> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      stravaClientIdEnc: true,
+      stravaClientSecretEnc: true,
+      stravaRedirectUriEnc: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (
+    !user.stravaClientIdEnc ||
+    !user.stravaClientSecretEnc ||
+    !user.stravaRedirectUriEnc
+  ) {
+    throw new MissingStravaCredentialsError(
+      "Credentials Strava manquants: configure ton Client ID / Secret / Redirect URI dans Strava Credentials.",
+    );
+  }
+
+  return {
+    clientId: decryptSecret(user.stravaClientIdEnc),
+    clientSecret: decryptSecret(user.stravaClientSecretEnc),
+    redirectUri: decryptSecret(user.stravaRedirectUriEnc),
+  };
+}
+
+function resolveRefreshCredentials(input: {
+  oauthClientIdEnc: string | null;
+  oauthClientSecretEnc: string | null;
+  fallback: StravaAppCredentials;
+}) {
+  if (!input.oauthClientIdEnc || !input.oauthClientSecretEnc) {
+    return input.fallback;
+  }
+
+  return {
+    clientId: decryptSecret(input.oauthClientIdEnc),
+    clientSecret: decryptSecret(input.oauthClientSecretEnc),
+    redirectUri: input.fallback.redirectUri,
+  };
+}
+
+export function stravaAuthorizeUrl(credentials: StravaAppCredentials, state?: string) {
   const url = new URL("https://www.strava.com/oauth/authorize");
-  url.searchParams.set("client_id", env.STRAVA_CLIENT_ID);
+  url.searchParams.set("client_id", credentials.clientId);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("approval_prompt", "auto");
   url.searchParams.set("scope", "read,activity:read_all");
-  url.searchParams.set("redirect_uri", redirectUri ?? env.STRAVA_REDIRECT_URI);
+  url.searchParams.set("redirect_uri", credentials.redirectUri);
   if (state) {
     url.searchParams.set("state", state);
   }
@@ -49,44 +111,77 @@ export function stravaAuthorizeUrl(redirectUri?: string, state?: string) {
   return url.toString();
 }
 
-export async function exchangeCodeForToken(code: string, redirectUri?: string) {
+export async function exchangeCodeForToken(
+  code: string,
+  credentials: StravaAppCredentials,
+) {
   return exchangeToken({
     grant_type: "authorization_code",
     code,
-    redirect_uri: redirectUri ?? env.STRAVA_REDIRECT_URI,
-  });
+    redirect_uri: credentials.redirectUri,
+  }, credentials);
 }
 
-export async function refreshStravaToken(refreshToken: string) {
+export async function refreshStravaToken(refreshToken: string, credentials: StravaAppCredentials) {
   return exchangeToken({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
-  });
+  }, credentials);
 }
 
 export async function getValidAccessToken(userId: string) {
   const token = await prisma.stravaToken.findUnique({
     where: { userId },
+    select: {
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
+      oauthClientIdEnc: true,
+      oauthClientSecretEnc: true,
+    },
   });
 
   if (!token) {
     throw new Error("Strava not connected");
   }
 
+  const decryptedAccessToken = decryptSecretIfEncrypted(token.accessToken);
+  const decryptedRefreshToken = decryptSecretIfEncrypted(token.refreshToken);
+  const requiresTokenReEncryption =
+    !isEncryptedSecret(token.accessToken) || !isEncryptedSecret(token.refreshToken);
   const expiresSoon = token.expiresAt.getTime() <= Date.now() + 60_000;
 
   if (!expiresSoon) {
-    return token.accessToken;
+    if (requiresTokenReEncryption) {
+      await prisma.stravaToken.update({
+        where: { userId },
+        data: {
+          accessToken: encryptSecret(decryptedAccessToken),
+          refreshToken: encryptSecret(decryptedRefreshToken),
+        },
+      });
+    }
+
+    return decryptedAccessToken;
   }
 
-  const refreshed = await refreshStravaToken(token.refreshToken);
+  const fallbackCredentials = await resolveUserStravaAppCredentials(userId);
+  const refreshCredentials = resolveRefreshCredentials({
+    oauthClientIdEnc: token.oauthClientIdEnc,
+    oauthClientSecretEnc: token.oauthClientSecretEnc,
+    fallback: fallbackCredentials,
+  });
+  const refreshed = await refreshStravaToken(decryptedRefreshToken, refreshCredentials);
 
   await prisma.stravaToken.update({
     where: { userId },
     data: {
-      accessToken: refreshed.access_token,
-      refreshToken: refreshed.refresh_token,
+      accessToken: encryptSecret(refreshed.access_token),
+      refreshToken: encryptSecret(refreshed.refresh_token),
       expiresAt: new Date(refreshed.expires_at * 1000),
+      oauthClientIdEnc: token.oauthClientIdEnc ?? encryptSecret(refreshCredentials.clientId),
+      oauthClientSecretEnc:
+        token.oauthClientSecretEnc ?? encryptSecret(refreshCredentials.clientSecret),
     },
   });
 

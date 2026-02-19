@@ -8,6 +8,48 @@ import { apiRoutes } from "./routes/index.js";
 
 const app = Fastify({
   logger: true,
+  bodyLimit: 1_000_000,
+  trustProxy: true,
+});
+
+app.addHook("onSend", async (request, reply, payload) => {
+  reply.header("X-Content-Type-Options", "nosniff");
+  reply.header("X-Frame-Options", "DENY");
+  reply.header("Referrer-Policy", "no-referrer");
+  reply.header(
+    "Permissions-Policy",
+    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+  );
+  reply.header("Cross-Origin-Opener-Policy", "same-origin");
+  reply.header("Cross-Origin-Resource-Policy", "same-origin");
+  reply.header("X-Permitted-Cross-Domain-Policies", "none");
+  reply.header(
+    "Content-Security-Policy",
+    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  );
+  reply.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  reply.header("Pragma", "no-cache");
+  reply.header("Expires", "0");
+
+  const forwardedProtoHeader = request.headers["x-forwarded-proto"];
+  const forwardedProto =
+    typeof forwardedProtoHeader === "string" ?
+      forwardedProtoHeader.split(",")[0]?.trim().toLowerCase()
+    : null;
+  const rawSocket = request.raw.socket as { encrypted?: boolean };
+  const isHttpsRequest =
+    request.protocol === "https" ||
+    rawSocket.encrypted === true ||
+    forwardedProto === "https";
+
+  if (isHttpsRequest) {
+    reply.header(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload",
+    );
+  }
+
+  return payload;
 });
 
 await app.register(cors, {
@@ -21,8 +63,38 @@ await app.register(fastifyJwt, {
 
 app.decorate("authenticate", async (request, reply) => {
   try {
-    const payload = await request.jwtVerify<{ sub: string }>();
-    request.userId = payload.sub;
+    const payload = await request.jwtVerify<{ sub: string; v?: number }>();
+
+    if (!payload.sub || typeof payload.v !== "number") {
+      return reply.code(401).send({ message: "Unauthorized" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+      select: {
+        id: true,
+        isApproved: true,
+        tokenVersion: true,
+      },
+    });
+
+    if (!user) {
+      return reply.code(401).send({ message: "Unauthorized" });
+    }
+
+    if (!user.isApproved) {
+      return reply
+        .code(403)
+        .send({ message: "Compte non valide par le gestionnaire." });
+    }
+
+    if (user.tokenVersion !== payload.v) {
+      return reply.code(401).send({ message: "Unauthorized" });
+    }
+
+    request.userId = user.id;
   } catch {
     return reply.code(401).send({ message: "Unauthorized" });
   }
@@ -43,11 +115,21 @@ app.setErrorHandler((error, request, reply) => {
     });
   }
 
-  request.log.error({ error }, "Unhandled error");
-  const message = error instanceof Error ? error.message : "Internal server error";
+  const statusCode =
+    typeof (error as { statusCode?: unknown }).statusCode === "number" ?
+      Math.max(400, Math.min(599, (error as { statusCode: number }).statusCode))
+    : 500;
 
-  return reply.code(500).send({
-    message,
+  if (statusCode >= 500) {
+    request.log.error({ error }, "Unhandled server error");
+    return reply.code(statusCode).send({
+      message: "Internal server error",
+    });
+  }
+
+  request.log.warn({ error }, "Handled client error");
+  return reply.code(statusCode).send({
+    message: error instanceof Error && error.message ? error.message : "Bad request",
   });
 });
 

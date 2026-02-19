@@ -2,12 +2,19 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/client";
 import type { User } from "../api/types";
 
+interface RegisterResponse {
+  message: string;
+  requiresApproval: boolean;
+}
+
 interface AuthContextValue {
   token: string | null;
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  loginWithStravaCode: (code: string, redirectUri?: string) => Promise<void>;
+  loginWithPassword: (email: string, password: string) => Promise<void>;
+  registerWithPassword: (email: string, password: string) => Promise<RegisterResponse>;
+  connectStravaWithCode: (code: string) => Promise<void>;
   refreshMe: () => Promise<void>;
   logout: () => void;
 }
@@ -46,17 +53,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [token]);
 
-  const loginWithStravaCode = async (code: string, redirectUri?: string) => {
-    const response = await apiRequest<{ jwt: string; user: User }>("/auth/strava/exchange", {
+  const loginWithPassword = async (email: string, password: string) => {
+    const response = await apiRequest<{ jwt: string; user: User }>("/auth/login", {
       method: "POST",
       body: {
-        code,
-        redirectUri,
+        email,
+        password,
       },
     });
 
     localStorage.setItem(STORAGE_KEY, response.jwt);
     setToken(response.jwt);
+    setUser(response.user);
+  };
+
+  const registerWithPassword = async (email: string, password: string) => {
+    return apiRequest<RegisterResponse>("/auth/register", {
+      method: "POST",
+      body: {
+        email,
+        password,
+      },
+    });
+  };
+
+  const connectStravaWithCode = async (code: string) => {
+    if (!token) {
+      throw new Error("Session expiree. Reconnecte-toi avant de lier Strava.");
+    }
+
+    const response = await apiRequest<{ user: User }>("/auth/strava/exchange", {
+      method: "POST",
+      token,
+      body: {
+        code,
+      },
+    });
+
     setUser(response.user);
   };
 
@@ -72,7 +105,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       isAuthenticated: !!token,
-      loginWithStravaCode,
+      loginWithPassword,
+      registerWithPassword,
+      connectStravaWithCode,
       refreshMe,
       logout,
     }),

@@ -10,6 +10,7 @@ import { ImportPage } from "./pages/ImportPage";
 import { LandingPage } from "./pages/LandingPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StravaCredentialsPage } from "./pages/StravaCredentialsPage";
 import { TrainingPlanPage } from "./pages/TrainingPlanPage";
 
 export function App() {
@@ -30,6 +31,7 @@ export function App() {
             <Route element={<CorrelationBuilderPage />} path="/correlations" />
             <Route element={<ExportPage />} path="/export" />
             <Route element={<SettingsPage />} path="/settings" />
+            <Route element={<StravaCredentialsPage />} path="/strava-credentials" />
           </Route>
         </Route>
 

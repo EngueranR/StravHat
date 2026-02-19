@@ -41,11 +41,13 @@ const normalizeWebUrl = (value: unknown) => {
 const envSchema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(3001),
   WEB_URL: z.preprocess(normalizeWebUrl, z.string().default('*')),
+  REDIS_URL: z.preprocess(normalizedString, z.string().url().optional()),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(8),
-  STRAVA_CLIENT_ID: z.string().min(1),
-  STRAVA_CLIENT_SECRET: z.string().min(1),
-  STRAVA_REDIRECT_URI: z.string().url(),
+  JWT_TTL: z.string().default('12h'),
+  AUDIT_LOG_KEY: z.string().min(16),
+  AUTH_PASSWORD_PEPPER: z.string().min(16),
+  STRAVA_CREDENTIALS_ENCRYPTION_KEY: z.string().min(43),
   HF_API_KEY: z.string().optional(),
   HF_MODEL: z
     .string()

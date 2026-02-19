@@ -9,6 +9,7 @@ const links = [
   { to: '/training-plan', label: 'Training Plan' },
   { to: '/correlations', label: 'Correlation Builder' },
   { to: '/export', label: 'Export CSV' },
+  { to: '/strava-credentials', label: 'Strava Credentials' },
   { to: '/settings', label: 'Settings' },
 ];
 
