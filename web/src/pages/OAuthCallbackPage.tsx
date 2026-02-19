@@ -78,8 +78,8 @@ export function OAuthCallbackPage() {
           {error ? (
             <>
               <p className="text-sm text-red-700">{error}</p>
-              <Link className={`inline-flex ${secondaryButtonClass}`} to="/login">
-                Retour login
+              <Link className={`inline-flex ${secondaryButtonClass}`} to={token ? "/connect-strava" : "/login"}>
+                {token ? "Retour connexion Strava" : "Retour login"}
               </Link>
             </>
           ) : (

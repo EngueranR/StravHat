@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173}",
-    "start:railway": "vite preview --host 0.0.0.0 --port ${PORT:-4173}",
+    "start": "sh -lc 'vite preview --host 0.0.0.0 --port ${PORT:-4173}'",
+    "start:railway": "sh -lc 'vite preview --host 0.0.0.0 --port ${PORT:-4173}'",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

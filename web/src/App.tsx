@@ -10,6 +10,7 @@ import { ImportPage } from "./pages/ImportPage";
 import { LandingPage } from "./pages/LandingPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StravaConnectPage } from "./pages/StravaConnectPage";
 import { StravaCredentialsPage } from "./pages/StravaCredentialsPage";
 import { TrainingPlanPage } from "./pages/TrainingPlanPage";
 
@@ -22,16 +23,20 @@ export function App() {
 
         <Route element={<ProtectedRoutes />}>
           <Route element={<AppLayout />}>
-            <Route element={<ImportPage />} path="/import" />
-            <Route element={<ActivitiesPage />} path="/activities" />
-            <Route element={<ActivityDetailPage />} path="/activities/:id" />
-            <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
-            <Route element={<AnalyticsPage />} path="/analytics" />
-            <Route element={<TrainingPlanPage />} path="/training-plan" />
-            <Route element={<CorrelationBuilderPage />} path="/correlations" />
-            <Route element={<ExportPage />} path="/export" />
             <Route element={<SettingsPage />} path="/settings" />
             <Route element={<StravaCredentialsPage />} path="/strava-credentials" />
+            <Route element={<StravaConnectPage />} path="/connect-strava" />
+
+            <Route element={<StravaLinkedRoutes />}>
+              <Route element={<ImportPage />} path="/import" />
+              <Route element={<ActivitiesPage />} path="/activities" />
+              <Route element={<ActivityDetailPage />} path="/activities/:id" />
+              <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
+              <Route element={<AnalyticsPage />} path="/analytics" />
+              <Route element={<TrainingPlanPage />} path="/training-plan" />
+              <Route element={<CorrelationBuilderPage />} path="/correlations" />
+              <Route element={<ExportPage />} path="/export" />
+            </Route>
           </Route>
         </Route>
 
@@ -45,9 +50,17 @@ export function App() {
 }
 
 function RootRedirect() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
-  return <Navigate replace to={isAuthenticated ? "/analytics" : "/login"} />;
+  if (loading) {
+    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate replace to="/login" />;
+  }
+
+  return <Navigate replace to={user?.connectedToStrava ? "/analytics" : "/connect-strava"} />;
 }
 
 function ProtectedRoutes() {
@@ -59,6 +72,20 @@ function ProtectedRoutes() {
 
   if (!isAuthenticated) {
     return <Navigate replace to="/login" />;
+  }
+
+  return <Outlet />;
+}
+
+function StravaLinkedRoutes() {
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+  }
+
+  if (!user?.connectedToStrava) {
+    return <Navigate replace to="/connect-strava" />;
   }
 
   return <Outlet />;

@@ -30,8 +30,8 @@ export function LandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  if (!loading && isAuthenticated && user?.connectedToStrava) {
-    return <Navigate replace to="/analytics" />;
+  if (!loading && isAuthenticated) {
+    return <Navigate replace to={user?.connectedToStrava ? "/analytics" : "/connect-strava"} />;
   }
 
   const startStravaAuth = async () => {

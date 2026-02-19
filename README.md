@@ -45,6 +45,8 @@ Le projet se deploie avec 3 services Railway:
 3. WEB (frontend `web`)
 
 ### API service
+- Root Directory (recommande): repo root (`/`)
+- Install Command: `bun install --frozen-lockfile`
 - Build Command: `bun run --filter=@stravhat/server build`
 - Start Command: `bun run --filter=@stravhat/server start`
 - Variables:
@@ -67,10 +69,20 @@ Important:
 - Ne pas utiliser `localhost` en production Railway.
 
 ### WEB service
+- Root Directory (recommande): repo root (`/`)
+- Install Command: `bun install --frozen-lockfile`
 - Build Command: `bun run --filter=@stravhat/web build`
 - Start Command: `bun run --filter=@stravhat/web start`
 - Variable:
   - `VITE_API_URL=https://<api-railway>/api`
+
+### Si Root Directory est `server` ou `web`
+- API install command: `bun install --cwd .. --frozen-lockfile`
+- API build command: `bun run --cwd .. --filter=@stravhat/server build`
+- API start command: `bun run --cwd .. --filter=@stravhat/server start`
+- WEB install command: `bun install --cwd .. --frozen-lockfile`
+- WEB build command: `bun run --cwd .. --filter=@stravhat/web build`
+- WEB start command: `bun run --cwd .. --filter=@stravhat/web start`
 
 ### Migrations Prisma
 Apres le premier deploy backend:

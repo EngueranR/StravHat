@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const links = [
+const fullLinks = [
   { to: '/import', label: 'Import Center' },
   { to: '/activities', label: 'Activities' },
   { to: '/analytics', label: 'Analytics Lab' },
@@ -16,6 +16,15 @@ const links = [
 export function AppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const isStravaConnected = !!user?.connectedToStrava;
+  const links =
+    isStravaConnected ?
+      fullLinks
+    : [
+        { to: '/connect-strava', label: 'Connect Strava' },
+        { to: '/strava-credentials', label: 'Strava Credentials' },
+        { to: '/settings', label: 'Settings' },
+      ];
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -51,6 +60,9 @@ export function AppLayout() {
             <p className='mt-1 text-xs text-muted'>
               Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
             </p>
+            {!isStravaConnected ? (
+              <p className='mt-1 text-[11px] text-amber-700'>OAuth Strava requis</p>
+            ) : null}
           </div>
           <button
             className='inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/20 text-xl hover:bg-black/5'
@@ -77,6 +89,9 @@ export function AppLayout() {
                 <p className='mt-1 text-xs text-muted'>
                   Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
                 </p>
+                {!isStravaConnected ? (
+                  <p className='mt-1 text-[11px] text-amber-700'>OAuth Strava requis</p>
+                ) : null}
               </div>
               {navContent}
               <button
@@ -98,6 +113,9 @@ export function AppLayout() {
               <p className='mt-2 text-xs text-muted'>
                 Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
               </p>
+              {!isStravaConnected ? (
+                <p className='mt-1 text-[11px] text-amber-700'>OAuth Strava requis</p>
+              ) : null}
             </div>
             {navContent}
             <button
