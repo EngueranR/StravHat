@@ -453,6 +453,19 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
+      if (message.includes("Strava token exchange failed (401)")) {
+        await logSecurityEvent({
+          eventType: "strava.oauth_exchange.invalid_application",
+          success: false,
+          userId: request.userId,
+          ip: request.ip,
+        });
+        return reply.code(400).send({
+          message:
+            "Application Strava invalide. Verifie le Client ID / Client Secret dans Strava Credentials puis reconnecte Strava.",
+        });
+      }
+
       await logSecurityEvent({
         eventType: "strava.oauth_exchange.error",
         success: false,

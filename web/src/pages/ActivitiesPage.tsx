@@ -774,48 +774,103 @@ export function ActivitiesPage() {
             {error ? <p className="text-sm text-red-700">{error}</p> : null}
             {data ? (
               <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b border-black/10 text-left">
-                        <th className="px-2 py-2">Date</th>
-                        <th className="px-2 py-2">Nom</th>
-                        <th className="px-2 py-2">Type</th>
-                        <th className="px-2 py-2">Distance ({distanceUnitLabel(unitPreferences.distanceUnit)})</th>
-                        <th className="px-2 py-2">Temps</th>
-                        <th className="px-2 py-2">D+ ({elevationUnitLabel(unitPreferences.elevationUnit)})</th>
-                        <th className="px-2 py-2">Vitesse ({speedUnitLabel(unitPreferences.speedUnit)})</th>
-                        <th className="px-2 py-2">HR</th>
-                        <th className="px-2 py-2">Watts</th>
-                        <th className="px-2 py-2">Cadence ({cadenceUnitLabel(unitPreferences.cadenceUnit)})</th>
-                        <th className="px-2 py-2">Calories</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.items.map((activity) => (
-                        <tr className="border-b border-black/5 hover:bg-black/5" key={activity.id}>
-                          <td className="px-2 py-2">{formatDate(activity.startDateLocal)}</td>
-                          <td className="px-2 py-2">
-                            <Link className="underline" to={`/activities/${activity.id}`}>
+                {isMobile ? (
+                  <div className="space-y-2">
+                    {data.items.map((activity) => (
+                      <article
+                        className="rounded-xl border border-black/10 bg-black/[0.03] p-3"
+                        key={activity.id}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <Link className="break-words font-medium underline" to={`/activities/${activity.id}`}>
                               {activity.name}
                             </Link>
-                          </td>
-                          <td className="px-2 py-2">{activity.sportType || activity.type}</td>
-                          <td className="px-2 py-2">{formatDistanceFromMeters(activity.distance, unitPreferences)}</td>
-                          <td className="px-2 py-2">{formatHours(activity.movingTime)}</td>
-                          <td className="px-2 py-2">{formatElevationFromMeters(activity.totalElevationGain, unitPreferences)}</td>
-                          <td className="px-2 py-2">{formatSpeedFromMetersPerSecond(activity.averageSpeed, unitPreferences)}</td>
-                          <td className="px-2 py-2">{activity.averageHeartrate ? `${activity.averageHeartrate.toFixed(0)} bpm` : "-"}</td>
-                          <td className="px-2 py-2">{activity.averageWatts ? `${activity.averageWatts.toFixed(0)} W` : "-"}</td>
-                          <td className="px-2 py-2">
+                            <p className="mt-1 text-xs text-muted">
+                              {formatDate(activity.startDateLocal)} · {activity.sportType || activity.type}
+                            </p>
+                          </div>
+                          <p className="text-xs font-semibold">
+                            {formatDistanceFromMeters(activity.distance, unitPreferences)}
+                          </p>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          <p>
+                            <span className="text-muted">Temps:</span>{" "}
+                            {formatHours(activity.movingTime)}
+                          </p>
+                          <p>
+                            <span className="text-muted">D+:</span>{" "}
+                            {formatElevationFromMeters(activity.totalElevationGain, unitPreferences)}
+                          </p>
+                          <p>
+                            <span className="text-muted">Vitesse:</span>{" "}
+                            {formatSpeedFromMetersPerSecond(activity.averageSpeed, unitPreferences)}
+                          </p>
+                          <p>
+                            <span className="text-muted">HR:</span>{" "}
+                            {activity.averageHeartrate ? `${activity.averageHeartrate.toFixed(0)} bpm` : "-"}
+                          </p>
+                          <p>
+                            <span className="text-muted">Watts:</span>{" "}
+                            {activity.averageWatts ? `${activity.averageWatts.toFixed(0)} W` : "-"}
+                          </p>
+                          <p>
+                            <span className="text-muted">Cadence:</span>{" "}
                             {activity.averageCadence ? formatCadenceFromRpm(activity.averageCadence, unitPreferences, 0) : "-"}
-                          </td>
-                          <td className="px-2 py-2">{activity.calories ? `${activity.calories.toFixed(0)} kcal` : "-"}</td>
+                          </p>
+                          <p className="col-span-2">
+                            <span className="text-muted">Calories:</span>{" "}
+                            {activity.calories ? `${activity.calories.toFixed(0)} kcal` : "-"}
+                          </p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-black/10 text-left">
+                          <th className="px-2 py-2">Date</th>
+                          <th className="px-2 py-2">Nom</th>
+                          <th className="px-2 py-2">Type</th>
+                          <th className="px-2 py-2">Distance ({distanceUnitLabel(unitPreferences.distanceUnit)})</th>
+                          <th className="px-2 py-2">Temps</th>
+                          <th className="px-2 py-2">D+ ({elevationUnitLabel(unitPreferences.elevationUnit)})</th>
+                          <th className="px-2 py-2">Vitesse ({speedUnitLabel(unitPreferences.speedUnit)})</th>
+                          <th className="px-2 py-2">HR</th>
+                          <th className="px-2 py-2">Watts</th>
+                          <th className="px-2 py-2">Cadence ({cadenceUnitLabel(unitPreferences.cadenceUnit)})</th>
+                          <th className="px-2 py-2">Calories</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {data.items.map((activity) => (
+                          <tr className="border-b border-black/5 hover:bg-black/5" key={activity.id}>
+                            <td className="px-2 py-2">{formatDate(activity.startDateLocal)}</td>
+                            <td className="px-2 py-2">
+                              <Link className="underline" to={`/activities/${activity.id}`}>
+                                {activity.name}
+                              </Link>
+                            </td>
+                            <td className="px-2 py-2">{activity.sportType || activity.type}</td>
+                            <td className="px-2 py-2">{formatDistanceFromMeters(activity.distance, unitPreferences)}</td>
+                            <td className="px-2 py-2">{formatHours(activity.movingTime)}</td>
+                            <td className="px-2 py-2">{formatElevationFromMeters(activity.totalElevationGain, unitPreferences)}</td>
+                            <td className="px-2 py-2">{formatSpeedFromMetersPerSecond(activity.averageSpeed, unitPreferences)}</td>
+                            <td className="px-2 py-2">{activity.averageHeartrate ? `${activity.averageHeartrate.toFixed(0)} bpm` : "-"}</td>
+                            <td className="px-2 py-2">{activity.averageWatts ? `${activity.averageWatts.toFixed(0)} W` : "-"}</td>
+                            <td className="px-2 py-2">
+                              {activity.averageCadence ? formatCadenceFromRpm(activity.averageCadence, unitPreferences, 0) : "-"}
+                            </td>
+                            <td className="px-2 py-2">{activity.calories ? `${activity.calories.toFixed(0)} kcal` : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <div className="mt-4 flex items-center justify-between text-sm">
                   <button
                     className={secondaryButtonCompactClass}

@@ -1106,6 +1106,10 @@ function classifyTsbState(tsb: number): DayStateStatus {
   };
 }
 
+function formatRatioWithPercent(ratio: number) {
+  return `${number(ratio, 2)} (${number(ratio * 100, 0)}%)`;
+}
+
 function classifyAtlState(atl: number, ctl: number): DayStateStatus {
   const ratio = ctl > 0 ? atl / ctl : null;
 
@@ -1113,27 +1117,27 @@ function classifyAtlState(atl: number, ctl: number): DayStateStatus {
     if (ratio <= 0.8) {
       return {
         label: 'Bon',
-        range: `ATL/CTL ${number(ratio, 2)} (<= 0.80: fatigue basse)`,
+        range: `ATL/CTL ${formatRatioWithPercent(ratio)} (<= 0.80: fatigue basse)`,
         tone: 'good',
       };
     }
     if (ratio <= 1.05) {
       return {
         label: 'OK',
-        range: `ATL/CTL ${number(ratio, 2)} (0.81-1.05: fatigue controlee)`,
+        range: `ATL/CTL ${formatRatioWithPercent(ratio)} (0.81-1.05: fatigue controlee)`,
         tone: 'neutral',
       };
     }
     if (ratio <= 1.25) {
       return {
         label: 'Mauvais',
-        range: `ATL/CTL ${number(ratio, 2)} (1.06-1.25: fatigue elevee)`,
+        range: `ATL/CTL ${formatRatioWithPercent(ratio)} (1.06-1.25: fatigue elevee)`,
         tone: 'warn',
       };
     }
     return {
       label: 'Mauvais',
-      range: `ATL/CTL ${number(ratio, 2)} (> 1.25: fatigue tres elevee)`,
+      range: `ATL/CTL ${formatRatioWithPercent(ratio)} (> 1.25: fatigue tres elevee)`,
       tone: 'bad',
     };
   }
@@ -1173,27 +1177,27 @@ function classifyChargeState(charge: number, ctl: number): DayStateStatus {
     if (ratio <= 0.6) {
       return {
         label: 'Bon',
-        range: `Charge/CTL ${number(ratio, 2)} (<= 0.60: charge legere)`,
+        range: `Charge/CTL ${formatRatioWithPercent(ratio)} (<= 0.60: charge legere)`,
         tone: 'good',
       };
     }
     if (ratio <= 1.1) {
       return {
         label: 'OK',
-        range: `Charge/CTL ${number(ratio, 2)} (0.61-1.10: charge cible)`,
+        range: `Charge/CTL ${formatRatioWithPercent(ratio)} (0.61-1.10: charge cible)`,
         tone: 'neutral',
       };
     }
     if (ratio <= 1.6) {
       return {
         label: 'Mauvais',
-        range: `Charge/CTL ${number(ratio, 2)} (1.11-1.60: charge soutenue)`,
+        range: `Charge/CTL ${formatRatioWithPercent(ratio)} (1.11-1.60: charge soutenue)`,
         tone: 'warn',
       };
     }
     return {
       label: 'Mauvais',
-      range: `Charge/CTL ${number(ratio, 2)} (> 1.60: charge tres elevee)`,
+      range: `Charge/CTL ${formatRatioWithPercent(ratio)} (> 1.60: charge tres elevee)`,
       tone: 'bad',
     };
   }
@@ -5212,7 +5216,7 @@ export function AnalyticsPage() {
                 infoHint={{
                   title: 'Etat du jour',
                   description:
-                    'Base sur les modeles CTL/ATL/TSB. CTL = forme de fond (42j), ATL = fatigue recente (7j), TSB = CTL - ATL. Intervalles pratiques: TSB >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 fatigue controlee, 1.06-1.25 fatigue elevee, > 1.25 fatigue tres elevee. Charge/CTL: <= 0.60 legere, 0.61-1.10 cible, 1.11-1.60 soutenue, > 1.60 tres elevee.',
+                    "Lecture du jour basee sur CTL/ATL/TSB. Important: Charge, CTL et ATL sont des points de charge (pas des pourcentages), donc 83 = 83 points. Les ratios ATL/CTL et Charge/CTL sont sans unite: 1.00 = 100%, 1.30 = 130%. Modeles utilises: CTL (EMA 42j), ATL (EMA 7j), TSB = CTL - ATL. Intervalles pratiques: TSB >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 fatigue controlee, 1.06-1.25 fatigue elevee, > 1.25 fatigue tres elevee. Charge/CTL: <= 0.60 legere, 0.61-1.10 cible, 1.11-1.60 soutenue, > 1.60 tres elevee.",
                   linkHref: 'https://pubmed.ncbi.nlm.nih.gov/24410871/',
                   linkLabel: 'Source: CTL/ATL/TSB et monitoring charge',
                 }}
@@ -5695,6 +5699,26 @@ export function AnalyticsPage() {
               />
               {collapsedSections.labProfile ?
                 <p className='text-xs text-muted'>Section repliee.</p>
+              : isMobile ?
+                <div className='space-y-2'>
+                  {athleteInsightsRows.map((row) => (
+                    <article
+                      className='rounded-xl border border-black/10 bg-black/[0.03] p-3'
+                      key={row.key}
+                    >
+                      <div className='flex items-start justify-between gap-2'>
+                        <p className='text-sm font-medium'>{row.label}</p>
+                        <InfoHint
+                          title={row.label}
+                          description={row.hint}
+                          linkHref={row.linkHref}
+                          linkLabel='Source'
+                        />
+                      </div>
+                      <p className='mt-2 text-sm text-muted'>{row.value}</p>
+                    </article>
+                  ))}
+                </div>
               : <div className='overflow-x-auto'>
                   <table className='min-w-full text-sm'>
                     <thead>
@@ -6434,36 +6458,65 @@ export function AnalyticsPage() {
                     </select>
                   </div>
 
-                  <div className='overflow-x-auto'>
-                    <table className='min-w-full text-sm'>
-                      <thead>
-                        <tr className='border-b border-black/10'>
-                          <th className='px-2 py-2 text-left'>Row</th>
-                          {pivotMetrics.map((metric) => (
-                            <th className='px-2 py-2 text-left' key={metric}>
-                              {pivotMetricLabel(metric, unitPreferences)}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pivotRows.map((row) => (
-                          <tr className='border-b border-black/5' key={row.key}>
-                            <td className='px-2 py-2'>{row.key}</td>
+                  {isMobile ?
+                    <div className='space-y-2'>
+                      {pivotRows.map((row) => (
+                        <article
+                          className='rounded-xl border border-black/10 bg-black/[0.03] p-3'
+                          key={row.key}
+                        >
+                          <p className='text-sm font-medium'>{row.key}</p>
+                          <div className='mt-2 grid gap-1 text-xs'>
                             {pivotMetrics.map((metric) => (
-                              <td className='px-2 py-2' key={metric}>
+                              <p key={metric}>
+                                <span className='text-muted'>
+                                  {pivotMetricLabel(metric, unitPreferences)}:
+                                </span>{' '}
                                 {formatPivotMetricValue(
                                   metric,
                                   Number(row[metric] ?? 0),
                                   unitPreferences,
                                 )}
-                              </td>
+                              </p>
+                            ))}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  : <div className='overflow-x-auto'>
+                      <table className='min-w-full text-sm'>
+                        <thead>
+                          <tr className='border-b border-black/10'>
+                            <th className='px-2 py-2 text-left'>Row</th>
+                            {pivotMetrics.map((metric) => (
+                              <th className='px-2 py-2 text-left' key={metric}>
+                                {pivotMetricLabel(metric, unitPreferences)}
+                              </th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {pivotRows.map((row) => (
+                            <tr
+                              className='border-b border-black/5'
+                              key={row.key}
+                            >
+                              <td className='px-2 py-2'>{row.key}</td>
+                              {pivotMetrics.map((metric) => (
+                                <td className='px-2 py-2' key={metric}>
+                                  {formatPivotMetricValue(
+                                    metric,
+                                    Number(row[metric] ?? 0),
+                                    unitPreferences,
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  }
                 </>
               }
             </Card>
@@ -6477,7 +6530,7 @@ export function AnalyticsPage() {
                 infoHint={{
                   title: 'CTL / ATL / TSB',
                   description:
-                    'CTL (42j) represente la forme de fond, ATL (7j) la fatigue recente, TSB = CTL - ATL indique la fraicheur. Repere TSB: >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. Repere ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 controlee, 1.06-1.25 elevee, > 1.25 tres elevee.',
+                    "Charge, CTL et ATL sont affiches en points de charge (ex: 83 points), alors que ATL/CTL est un ratio sans unite (ex: 1.30 = 130%). Calculs: CTL = EMA 42 jours, ATL = EMA 7 jours, TSB = CTL - ATL. Repere TSB: >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. Repere ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 controlee, 1.06-1.25 elevee, > 1.25 tres elevee.",
                   linkHref: 'https://pubmed.ncbi.nlm.nih.gov/24410871/',
                   linkLabel: 'Source: CTL/ATL/TSB et monitoring charge',
                 }}
@@ -7020,6 +7073,79 @@ export function AnalyticsPage() {
                 />
                 {collapsedSections.histSessions ?
                   <p className='text-xs text-muted'>Section repliee.</p>
+                : isMobile ?
+                  <div className='space-y-2'>
+                    {historicalRowsForTable.map((row) => (
+                      <article
+                        className={`cursor-pointer rounded-xl border border-black/10 p-3 ${row.session.id === referenceId ? 'bg-amber-50/60' : 'bg-black/[0.03]'}`}
+                        key={row.session.id}
+                        onClick={() => setSelectedActivity(row.session.activity)}
+                      >
+                        <p className='break-words text-sm font-medium'>
+                          {row.session.activity.name}
+                        </p>
+                        <p className='mt-1 text-xs text-muted'>
+                          {row.session.day} · Sim {row.similarity.toFixed(2)}
+                        </p>
+                        <div className='mt-2 grid grid-cols-2 gap-2 text-xs'>
+                          <p>
+                            <span className='text-muted'>
+                              Dist (
+                              {distanceUnitLabel(
+                                unitPreferences.distanceUnit,
+                              )}
+                              ):
+                            </span>{' '}
+                            {formatDistanceFromKm(
+                              row.session.distanceKm,
+                              unitPreferences,
+                              2,
+                            )}
+                          </p>
+                          <p>
+                            <span className='text-muted'>Temps:</span>{' '}
+                            {formatDuration(row.session.durationMin)}
+                          </p>
+                          <p>
+                            <span className='text-muted'>
+                              {unitPreferences.speedUnit === 'kmh' ?
+                                'Vit'
+                              : 'Allure'}{' '}
+                              ({speedUnitLabel(unitPreferences.speedUnit)}):
+                            </span>{' '}
+                            {row.session.speedKmh === null ?
+                              'n/a'
+                            : formatSpeedFromKmh(
+                                row.session.speedKmh,
+                                unitPreferences,
+                                2,
+                              )
+                            }
+                          </p>
+                          <p>
+                            <span className='text-muted'>FC:</span>{' '}
+                            {row.session.hr === null ?
+                              'n/a'
+                            : row.session.hr.toFixed(0)}
+                          </p>
+                          <p className='col-span-2'>
+                            <span className='text-muted'>
+                              Cadence (
+                              {cadenceUnitLabel(unitPreferences.cadenceUnit)}):
+                            </span>{' '}
+                            {row.session.cadence === null ?
+                              'n/a'
+                            : formatCadenceFromRpm(
+                                row.session.cadence,
+                                unitPreferences,
+                                0,
+                              )
+                            }
+                          </p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 : <div className='overflow-x-auto'>
                     <table className='min-w-full text-sm'>
                       <thead>

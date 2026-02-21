@@ -44,7 +44,16 @@ const stravaCredentialUpdateSchema = z.object({
     .min(1)
     .max(32)
     .regex(/^\d+$/, "Le client ID Strava doit etre numerique."),
-  clientSecret: z.string().trim().min(8).max(256),
+  clientSecret: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
+      const trimmed = value.trim();
+      return trimmed === "" ? undefined : trimmed;
+    },
+    z.string().min(8).max(256).optional(),
+  ),
   redirectUri: z.string().trim().url(),
   currentPassword: z.string().min(1).max(128),
 });
@@ -268,6 +277,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         select: {
           id: true,
           passwordHash: true,
+          stravaClientSecretEnc: true,
         },
       });
 
@@ -295,12 +305,21 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         return reply.code(401).send({ message: "Mot de passe incorrect." });
       }
 
+      if (!body.clientSecret && !user.stravaClientSecretEnc) {
+        return reply.code(400).send({
+          message: "Client Secret requis lors de la premiere configuration.",
+        });
+      }
+
       await prisma.$transaction([
         prisma.user.update({
           where: { id: user.id },
           data: {
             stravaClientIdEnc: encryptSecret(body.clientId.trim()),
-            stravaClientSecretEnc: encryptSecret(body.clientSecret.trim()),
+            stravaClientSecretEnc:
+              body.clientSecret ?
+                encryptSecret(body.clientSecret)
+              : user.stravaClientSecretEnc,
             stravaRedirectUriEnc: encryptSecret(body.redirectUri),
           },
         }),

@@ -14,6 +14,7 @@ interface StravaCredentialStatus {
 export function StravaCredentialsPage() {
   const { token, refreshMe } = useAuth();
   const defaultRedirectUri = `${window.location.origin}/auth/callback`;
+  const callbackDomain = window.location.host;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -157,6 +158,39 @@ export function StravaCredentialsPage() {
       />
 
       <Card>
+        <div className="space-y-3">
+          <p className="text-sm font-semibold">Tutoriel Strava API</p>
+          <p className="text-xs text-muted">
+            1) Ouvre{" "}
+            <a
+              className="underline"
+              href="https://www.strava.com/settings/api"
+              rel="noreferrer"
+              target="_blank"
+            >
+              https://www.strava.com/settings/api
+            </a>{" "}
+            et cree ton application.
+          </p>
+          <p className="text-xs text-muted">
+            2) Dans Strava, mets <span className="font-semibold">Authorization Callback Domain</span>{" "}
+            sur <span className="font-mono">{callbackDomain}</span>.
+          </p>
+          <p className="text-xs text-muted">
+            3) Recopie le <span className="font-semibold">Client ID</span> et le{" "}
+            <span className="font-semibold">Client Secret</span>.
+          </p>
+          <p className="text-xs text-muted">
+            4) Mets la Redirect URI exactement a{" "}
+            <span className="font-mono">{defaultRedirectUri}</span>.
+          </p>
+          <p className="text-xs text-muted">
+            5) Sauvegarde ici, puis va sur <span className="font-semibold">Connect Strava</span> pour lancer l OAuth.
+          </p>
+        </div>
+      </Card>
+
+      <Card>
         {loading ? (
           <p className="text-sm text-muted">Chargement...</p>
         ) : (
@@ -187,11 +221,20 @@ export function StravaCredentialsPage() {
                   className={inputClass}
                   id="strava-client-secret"
                   onChange={(event) => setClientSecret(event.target.value)}
-                  placeholder="Renseigne le secret a stocker"
-                  required
+                  placeholder={
+                    status?.hasCustomCredentials ?
+                      "Laisse vide pour conserver le secret deja stocke"
+                    : "Renseigne le secret a stocker"
+                  }
                   type="password"
                   value={clientSecret}
                 />
+                {status?.hasCustomCredentials ? (
+                  <p className="text-[11px] text-muted">
+                    Le secret n'est jamais re-affiche. Si tu laisses ce champ vide, le
+                    secret en base est conserve.
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-1.5">

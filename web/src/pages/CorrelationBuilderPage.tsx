@@ -980,37 +980,28 @@ export function CorrelationBuilderPage() {
                 Vider la selection
               </button>
             </div>
-            <div className='overflow-x-auto'>
-              <table className={`min-w-[800px] ${tableTextClass}`}>
-                <thead>
-                  <tr className='border-b border-black/10 text-left'>
-                    <th className={`${tableCellClass} whitespace-nowrap`}>
-                      Select
-                    </th>
-                    <th className={`${tableCellClass} whitespace-nowrap`}>
-                      Date
-                    </th>
-                    <th className={`${tableCellClass} whitespace-nowrap`}>
-                      Nom
-                    </th>
-                    <th className={`${tableCellClass} whitespace-nowrap`}>
-                      Type
-                    </th>
-                    <th className={`${tableCellClass} whitespace-nowrap`}>
-                      {distanceColumnLabel}
-                    </th>
-                    <th className={`${tableCellClass} whitespace-nowrap`}>
-                      Info
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activityList.map((activity) => (
-                    <tr
-                      key={activity.id}
-                      className='border-b border-black/5 hover:bg-black/5'
-                    >
-                      <td className={tableCellClass}>
+            {isMobile ?
+              <div className='space-y-2'>
+                {activityList.map((activity) => (
+                  <article
+                    key={activity.id}
+                    className='rounded-xl border border-black/10 bg-black/[0.03] p-3'
+                  >
+                    <div className='flex items-start justify-between gap-3'>
+                      <div className='min-w-0'>
+                        <p className='break-words text-sm font-medium'>
+                          {activity.name}
+                        </p>
+                        <p className='mt-1 text-xs text-muted'>
+                          {new Date(activity.startDateLocal).toLocaleDateString()}{' '}
+                          · {activity.sportType || activity.type}
+                        </p>
+                        <p className='mt-1 text-xs text-muted'>
+                          {distanceColumnLabel}:{' '}
+                          {formatDistanceFromMeters(activity.distance)}
+                        </p>
+                      </div>
+                      <label className='inline-flex items-center gap-2 text-xs font-medium'>
                         <input
                           type='checkbox'
                           checked={selectedIds.has(activity.id)}
@@ -1028,34 +1019,103 @@ export function CorrelationBuilderPage() {
                             setSelectedActivities(nextActivities);
                           }}
                         />
-                      </td>
-                      <td className={`${tableCellClass} whitespace-nowrap`}>
-                        {new Date(activity.startDateLocal).toLocaleDateString()}
-                      </td>
-                      <td className={`${tableCellClass} whitespace-nowrap`}>
-                        {activity.name}
-                      </td>
-                      <td className={`${tableCellClass} whitespace-nowrap`}>
-                        {activity.sportType || activity.type}
-                      </td>
-                      <td className={`${tableCellClass} whitespace-nowrap`}>
-                        {formatDistanceFromMeters(activity.distance)}
-                      </td>
-                      <td className={tableCellClass}>
-                        <button
-                          className={roundIconButtonClass}
-                          type='button'
-                          onClick={() => setSelectedActivity(activity)}
-                          title='Voir le recap activite'
-                        >
-                          i
-                        </button>
-                      </td>
+                        Select
+                      </label>
+                    </div>
+                    <div className='mt-2 flex justify-end'>
+                      <button
+                        className={roundIconButtonClass}
+                        type='button'
+                        onClick={() => setSelectedActivity(activity)}
+                        title='Voir le recap activite'
+                      >
+                        i
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            : <div className='overflow-x-auto'>
+                <table className={`min-w-[800px] ${tableTextClass}`}>
+                  <thead>
+                    <tr className='border-b border-black/10 text-left'>
+                      <th className={`${tableCellClass} whitespace-nowrap`}>
+                        Select
+                      </th>
+                      <th className={`${tableCellClass} whitespace-nowrap`}>
+                        Date
+                      </th>
+                      <th className={`${tableCellClass} whitespace-nowrap`}>
+                        Nom
+                      </th>
+                      <th className={`${tableCellClass} whitespace-nowrap`}>
+                        Type
+                      </th>
+                      <th className={`${tableCellClass} whitespace-nowrap`}>
+                        {distanceColumnLabel}
+                      </th>
+                      <th className={`${tableCellClass} whitespace-nowrap`}>
+                        Info
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {activityList.map((activity) => (
+                      <tr
+                        key={activity.id}
+                        className='border-b border-black/5 hover:bg-black/5'
+                      >
+                        <td className={tableCellClass}>
+                          <input
+                            type='checkbox'
+                            checked={selectedIds.has(activity.id)}
+                            onChange={() => {
+                              const next = new Set(selectedIds);
+                              const nextActivities = {
+                                ...selectedActivities,
+                              };
+                              if (next.has(activity.id)) {
+                                next.delete(activity.id);
+                                delete nextActivities[activity.id];
+                              } else {
+                                next.add(activity.id);
+                                nextActivities[activity.id] = activity;
+                              }
+                              setSelectedIds(next);
+                              setSelectedActivities(nextActivities);
+                            }}
+                          />
+                        </td>
+                        <td className={`${tableCellClass} whitespace-nowrap`}>
+                          {new Date(
+                            activity.startDateLocal,
+                          ).toLocaleDateString()}
+                        </td>
+                        <td className={`${tableCellClass} whitespace-nowrap`}>
+                          {activity.name}
+                        </td>
+                        <td className={`${tableCellClass} whitespace-nowrap`}>
+                          {activity.sportType || activity.type}
+                        </td>
+                        <td className={`${tableCellClass} whitespace-nowrap`}>
+                          {formatDistanceFromMeters(activity.distance)}
+                        </td>
+                        <td className={tableCellClass}>
+                          <button
+                            className={roundIconButtonClass}
+                            type='button'
+                            onClick={() => setSelectedActivity(activity)}
+                            title='Voir le recap activite'
+                          >
+                            i
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
             <div className='mt-3 flex items-center justify-between text-xs text-muted'>
               <span>
                 {offset + 1}-
@@ -1101,6 +1161,51 @@ export function CorrelationBuilderPage() {
           <p className='text-xs text-muted'>Section repliee.</p>
         : selectedList.length === 0 ?
           <p className='text-sm text-muted'>Aucune activite selectionnee.</p>
+        : isMobile ?
+          <div className='space-y-2'>
+            {selectedList.map((activity) => (
+              <article
+                key={activity.id}
+                className='rounded-xl border border-black/10 bg-black/[0.03] p-3'
+              >
+                <p className='break-words text-sm font-medium'>
+                  {activity.name}
+                </p>
+                <p className='mt-1 text-xs text-muted'>
+                  {new Date(activity.startDateLocal).toLocaleDateString()} ·{' '}
+                  {activity.sportType || activity.type}
+                </p>
+                <p className='mt-1 text-xs text-muted'>
+                  {distanceColumnLabel}:{' '}
+                  {formatDistanceFromMeters(activity.distance)}
+                </p>
+                <div className='mt-3 flex items-center justify-end gap-2'>
+                  <button
+                    className='rounded-lg border border-black/20 px-3 py-1 text-xs hover:bg-black/5'
+                    type='button'
+                    onClick={() => {
+                      const next = new Set(selectedIds);
+                      const nextActivities = { ...selectedActivities };
+                      next.delete(activity.id);
+                      delete nextActivities[activity.id];
+                      setSelectedIds(next);
+                      setSelectedActivities(nextActivities);
+                    }}
+                  >
+                    Retirer
+                  </button>
+                  <button
+                    className={roundIconButtonClass}
+                    type='button'
+                    onClick={() => setSelectedActivity(activity)}
+                    title='Voir le recap activite'
+                  >
+                    i
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         : <div className='overflow-x-auto'>
             <table className={`min-w-[800px] ${tableTextClass}`}>
               <thead>

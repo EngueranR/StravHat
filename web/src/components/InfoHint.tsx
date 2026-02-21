@@ -50,14 +50,14 @@ const SOURCE_HINTS: SourceHint[] = [
     linkLabel: "Source: Z-score",
   },
   {
-    keywords: ["euclid", "distance"],
+    keywords: ["euclid", "distance euclidienne", "similarite"],
     description:
       "La distance euclidienne compare la proximite multi-dimensionnelle entre observations.",
     linkHref: "https://en.wikipedia.org/wiki/Euclidean_distance",
     linkLabel: "Source: Distance euclidienne",
   },
   {
-    keywords: ["normal", "base 100", "index"],
+    keywords: ["normalisation", "base 100", "index"],
     description:
       "La normalisation en base 100 permet de comparer des trajectoires de metriques differentes.",
     linkHref: "https://en.wikipedia.org/wiki/Normalization_(statistics)",
@@ -126,6 +126,70 @@ function normalize(value: string) {
   return value.toLowerCase();
 }
 
+function hasAnyKeyword(haystack: string, keywords: string[]) {
+  return keywords.some((keyword) => haystack.includes(normalize(keyword)));
+}
+
+function buildCalculationNotes(title: string, description: string) {
+  const haystack = normalize(`${title} ${description}`);
+  const notes: string[] = [];
+  const add = (note: string) => {
+    if (!notes.includes(note)) {
+      notes.push(note);
+    }
+  };
+
+  if (hasAnyKeyword(haystack, ["ctl", "atl", "tsb", "charge", "fatigue", "forme"])) {
+    add("Charge, CTL et ATL sont en points de charge (pas en %). Exemple: 83 = 83 points.");
+    add("CTL = EMA de la charge sur 42 jours (forme de fond).");
+    add("ATL = EMA de la charge sur 7 jours (fatigue recente).");
+    add("TSB = CTL - ATL (fraicheur).");
+    add("ATL/CTL et Charge/CTL sont des ratios sans unite: 1.00 = 100%, 1.30 = 130%.");
+  }
+
+  if (hasAnyKeyword(haystack, ["zone cardiaque", "zones cardiaques", "fc max", "heart rate"])) {
+    add("% FCmax = (FC / FCmax) x 100, puis classement en zones (Z1..Z5).");
+  }
+
+  if (hasAnyKeyword(haystack, ["riegel", "temps de reference", "marathon", "semi"])) {
+    add("Projection Riegel: temps2 = temps1 x (distance2 / distance1)^1.06.");
+  }
+
+  if (hasAnyKeyword(haystack, ["z-score", "standard score"])) {
+    add("Standardisation: z = (valeur - moyenne) / ecart-type.");
+  }
+
+  if (hasAnyKeyword(haystack, ["euclid", "similarit", "proximite"])) {
+    add("Similarite: distance euclidienne = sqrt(sum((zi - zref)^2)).");
+  }
+
+  if (hasAnyKeyword(haystack, ["base 100", "indexee", "normalisation"])) {
+    add("Index base 100: index = (valeur / valeur de reference) x 100.");
+  }
+
+  if (hasAnyKeyword(haystack, ["histogram", "distribution"])) {
+    add("Histogramme: chaque barre compte les activites dans un intervalle [from, to].");
+  }
+
+  if (hasAnyKeyword(haystack, ["pivot", "avg", "moyenne", "somme"])) {
+    add("Pivot: colonnes avg* = moyenne des lignes du groupe, autres colonnes = somme.");
+  }
+
+  if (hasAnyKeyword(haystack, ["spearman", "rho", "correlation"])) {
+    add("Correlation: rho/r varie de -1 a +1 (0 = pas de relation monotone/lineaire).");
+  }
+
+  if (hasAnyKeyword(haystack, ["cohen", "effect size"])) {
+    add("Effet (Cohen d) = (moyenne recente - moyenne debut) / ecart-type combine.");
+  }
+
+  if (hasAnyKeyword(haystack, ["regression", "trend", "tendance"])) {
+    add("Ligne de tendance: regression lineaire y = a*x + b (a = pente moyenne).");
+  }
+
+  return notes.slice(0, 6);
+}
+
 function pickSourceHint(title: string, description: string) {
   const haystack = normalize(`${title} ${description}`);
   return SOURCE_HINTS.find((entry) =>
@@ -141,6 +205,7 @@ export function InfoHint({ title, description, linkHref, linkLabel }: InfoHintPr
   const source = detected ?? DEFAULT_SOURCE;
   const resolvedLinkHref = linkHref ?? source.linkHref;
   const resolvedLinkLabel = linkLabel ?? source.linkLabel;
+  const calculationNotes = buildCalculationNotes(title, description);
   const enrichedDescription = description.includes(source.description)
     ? description
     : `${description} ${source.description}`;
@@ -152,9 +217,19 @@ export function InfoHint({ title, description, linkHref, linkLabel }: InfoHintPr
           i
         </span>
       </summary>
-      <div className="absolute right-0 z-20 mt-2 w-72 max-w-[min(18rem,calc(100vw-1.5rem))] rounded-lg border border-black/20 bg-panel p-3 text-xs leading-relaxed text-ink shadow-panel">
+      <div className="absolute right-0 z-20 mt-2 w-[min(24rem,calc(100vw-1.5rem))] rounded-lg border border-black/20 bg-panel p-3 text-xs leading-relaxed text-ink shadow-panel">
         <p className="font-semibold">{title}</p>
         <p className="mt-1 text-muted">{enrichedDescription}</p>
+        {calculationNotes.length > 0 ? (
+          <>
+            <p className="mt-2 font-semibold">Calcul utilise</p>
+            <ul className="mt-1 list-disc space-y-1 pl-4 text-muted">
+              {calculationNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
         <a
           className="mt-2 inline-block text-[11px] font-semibold text-accent underline-offset-2 hover:underline"
           href={resolvedLinkHref}
