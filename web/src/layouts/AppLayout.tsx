@@ -38,10 +38,13 @@ export function AppLayout() {
         { to: '/strava-credentials', label: 'Credentials' },
         { to: '/settings', label: 'Settings' },
       ];
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMoreLinks = links.filter(
+    (link) => !mobileQuickLinks.some((quickLink) => quickLink.to === link.to),
+  );
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
+    setMobileSheetOpen(false);
   }, [location.pathname]);
 
   const desktopNavContent = (
@@ -55,7 +58,7 @@ export function AppLayout() {
             }`}
             key={link.to}
             to={link.to}
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={() => setMobileSheetOpen(false)}
           >
             {link.label}
           </Link>
@@ -64,69 +67,67 @@ export function AppLayout() {
     </nav>
   );
 
-  const mobileDrawerNavContent = (
-    <nav className='grid grid-cols-1 gap-1.5'>
-      {links.map((link) => {
-        const active = location.pathname.startsWith(link.to);
-        return (
-          <Link
-            className={`block rounded-xl px-3 py-2.5 text-sm transition ${
-              active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
-            }`}
-            key={link.to}
-            to={link.to}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            {link.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
+  const mobileSheetNavContent =
+    mobileMoreLinks.length > 0 ? (
+      <nav className='grid grid-cols-1 gap-1.5'>
+        {mobileMoreLinks.map((link) => {
+          const active = location.pathname.startsWith(link.to);
+          return (
+            <Link
+              className={`block rounded-xl px-3 py-2.5 text-sm transition ${
+                active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
+              }`}
+              key={link.to}
+              to={link.to}
+              onClick={() => setMobileSheetOpen(false)}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
+    ) : (
+      <p className='text-xs text-muted'>Aucune section supplementaire.</p>
+    );
 
   return (
     <div className='min-h-screen overflow-x-hidden bg-grain bg-[size:14px_14px]'>
       <div className='mx-auto max-w-[1400px] px-3 py-4 sm:px-4 sm:py-6 lg:px-8'>
-        <header className='mb-4 flex items-center justify-between rounded-2xl border border-black/10 bg-panel p-3 shadow-panel lg:hidden'>
-          <div>
-            <p className='text-lg font-semibold'>StravHat</p>
-            <p className='mt-1 text-xs text-muted'>
-              Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
-            </p>
-            {!isStravaConnected ? (
-              <p className='mt-1 text-[11px] text-amber-700'>OAuth Strava requis</p>
-            ) : null}
-          </div>
-          <button
-            className='inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/20 text-xl hover:bg-black/5'
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            type='button'
-            aria-label='Ouvrir le menu'
-            title='Menu'
-          >
-            {mobileMenuOpen ? '×' : '☰'}
-          </button>
+        <header className='mb-4 rounded-2xl border border-black/10 bg-panel p-3 shadow-panel lg:hidden'>
+          <p className='text-lg font-semibold'>StravHat</p>
+          <p className='mt-1 text-xs text-muted'>
+            Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
+          </p>
+          {!isStravaConnected ? (
+            <p className='mt-1 text-[11px] text-amber-700'>OAuth Strava requis</p>
+          ) : null}
         </header>
 
-        {mobileMenuOpen ? (
+        {mobileSheetOpen ? (
           <>
             <button
-              aria-label='Fermer le menu'
+              aria-label='Fermer le panneau'
               className='fixed inset-0 z-40 bg-black/35 lg:hidden'
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => setMobileSheetOpen(false)}
               type='button'
             />
-            <aside className='fixed inset-y-0 left-0 z-50 w-[min(86vw,320px)] rounded-r-2xl border-r border-black/10 bg-panel p-4 shadow-panel lg:hidden'>
-              <div className='mb-6'>
-                <p className='text-lg font-semibold'>StravHat</p>
-                <p className='mt-1 text-xs text-muted'>
-                  Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
-                </p>
-                {!isStravaConnected ? (
-                  <p className='mt-1 text-[11px] text-amber-700'>OAuth Strava requis</p>
-                ) : null}
+            <section className='fixed inset-x-0 bottom-0 z-50 max-h-[76vh] rounded-t-2xl border border-black/10 bg-panel p-4 shadow-panel lg:hidden'>
+              <div className='mb-4 flex items-center justify-between gap-3'>
+                <div>
+                  <p className='text-sm font-semibold'>Menu mobile</p>
+                  <p className='text-xs text-muted'>
+                    Sections secondaires et compte
+                  </p>
+                </div>
+                <button
+                  className='inline-flex h-9 items-center justify-center rounded-lg border border-black/20 px-3 text-xs hover:bg-black/5'
+                  onClick={() => setMobileSheetOpen(false)}
+                  type='button'
+                >
+                  Fermer
+                </button>
               </div>
-              {mobileDrawerNavContent}
+              {mobileSheetNavContent}
               <button
                 className='mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-black/20 px-3 text-sm hover:bg-black/5'
                 onClick={logout}
@@ -134,7 +135,7 @@ export function AppLayout() {
               >
                 Logout
               </button>
-            </aside>
+            </section>
           </>
         ) : null}
 
@@ -188,10 +189,10 @@ export function AppLayout() {
             })}
             <button
               type='button'
-              onClick={() => setMobileMenuOpen(true)}
+              onClick={() => setMobileSheetOpen(true)}
               className='inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-2 text-center text-[11px] font-medium text-ink transition hover:bg-black/5'
             >
-              Menu
+              Plus
             </button>
           </div>
         </div>
