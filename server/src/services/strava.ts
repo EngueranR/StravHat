@@ -2,6 +2,7 @@ import { type Activity } from "@prisma/client";
 import { prisma } from "../db.js";
 import type { StravaActivity, StravaTokenResponse } from "../types/strava.js";
 import { estimateCalories } from "../utils/calories.js";
+import { buildRunOnlyActivityWhere, isRunLikeActivityType } from "../utils/runActivities.js";
 import { resolveRunDynamics } from "../utils/runDynamics.js";
 import {
   decryptSecret,
@@ -281,6 +282,15 @@ function mapActivity(
 
 export async function importAllActivities(userId: string) {
   let accessToken = await getValidAccessToken(userId);
+  const runOnlyWhere = buildRunOnlyActivityWhere();
+
+  await prisma.activity.deleteMany({
+    where: {
+      userId,
+      NOT: runOnlyWhere,
+    },
+  });
+
   const userProfile = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -315,25 +325,34 @@ export async function importAllActivities(userId: string) {
       break;
     }
 
-    pages += 1;
-
-    await prisma.$transaction(
-      activities.map((activity) => {
-        const mapped = mapActivity(userId, activity, userProfile);
-
-        return prisma.activity.upsert({
-          where: {
-            stravaActivityId: mapped.stravaActivityId,
-          },
-          create: mapped,
-          update: {
-            ...mapped,
-          },
-        });
+    const runningActivities = activities.filter((activity) =>
+      isRunLikeActivityType({
+        sportType: activity.sport_type,
+        type: activity.type,
       }),
     );
 
-    imported += activities.length;
+    pages += 1;
+
+    if (runningActivities.length > 0) {
+      await prisma.$transaction(
+        runningActivities.map((activity) => {
+          const mapped = mapActivity(userId, activity, userProfile);
+
+          return prisma.activity.upsert({
+            where: {
+              stravaActivityId: mapped.stravaActivityId,
+            },
+            create: mapped,
+            update: {
+              ...mapped,
+            },
+          });
+        }),
+      );
+    }
+
+    imported += runningActivities.length;
     page += 1;
   }
 

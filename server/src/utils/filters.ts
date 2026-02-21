@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { buildRunOnlyActivityWhere } from "./runActivities.js";
 
 export interface ActivityFilters {
   from?: Date;
@@ -83,6 +84,7 @@ export function buildActivityWhere(userId: string, filters: ActivityFilters): Pr
   const where: Prisma.ActivityWhereInput = {
     userId,
   };
+  const andConditions: Prisma.ActivityWhereInput[] = [buildRunOnlyActivityWhere()];
 
   if (filters.ids && filters.ids.length > 0) {
     where.id = { in: filters.ids };
@@ -113,10 +115,12 @@ export function buildActivityWhere(userId: string, filters: ActivityFilters): Pr
   }
 
   if (filters.type) {
-    where.OR = [
-      { type: { equals: filters.type, mode: "insensitive" } },
-      { sportType: { equals: filters.type, mode: "insensitive" } },
-    ];
+    andConditions.push({
+      OR: [
+        { type: { equals: filters.type, mode: "insensitive" } },
+        { sportType: { equals: filters.type, mode: "insensitive" } },
+      ],
+    });
   }
 
   if (filters.q) {
@@ -233,6 +237,8 @@ export function buildActivityWhere(userId: string, filters: ActivityFilters): Pr
       (where.kilojoules as Prisma.FloatNullableFilter).lte = filters.maxKilojoules;
     }
   }
+
+  where.AND = [...(where.AND ?? []), ...andConditions];
 
   return where;
 }

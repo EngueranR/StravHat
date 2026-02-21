@@ -11,15 +11,15 @@ export function FilterToggleButton({
 }: FilterToggleButtonProps) {
   return (
     <button
-      className={roundIconButtonClass}
+      className={`${roundIconButtonClass} h-6 w-6 border-black/15 bg-black/[0.02] text-black/60 hover:bg-black/[0.05]`}
       type='button'
       onClick={onToggle}
       title={collapsed ? 'Afficher les filtres' : 'Masquer les filtres'}
       aria-label={collapsed ? 'Afficher les filtres' : 'Masquer les filtres'}
     >
       <svg
-        width='12'
-        height='12'
+        width='10'
+        height='10'
         viewBox='0 0 24 24'
         fill='none'
         xmlns='http://www.w3.org/2000/svg'
@@ -36,4 +36,3 @@ export function FilterToggleButton({
     </button>
   );
 }
-

@@ -15,6 +15,13 @@ export interface SubscriptionPlanLimits {
   trainingPlanWindow: QuotaWindow;
 }
 
+const adminUnlimitedLimits: SubscriptionPlanLimits = {
+  stravaImportsPerDay: Number.MAX_SAFE_INTEGER,
+  aiRequestsPerDay: Number.MAX_SAFE_INTEGER,
+  trainingPlansPerWindow: Number.MAX_SAFE_INTEGER,
+  trainingPlanWindow: 'day',
+};
+
 const limitsByTier: Record<SubscriptionTier, SubscriptionPlanLimits> = {
   FREE: {
     stravaImportsPerDay: 1,
@@ -30,25 +37,38 @@ const limitsByTier: Record<SubscriptionTier, SubscriptionPlanLimits> = {
   },
 };
 
-export function planDisplayName(tier: SubscriptionTier) {
+export function planDisplayName(tier: SubscriptionTier, isAdmin = false) {
+  if (isAdmin) {
+    return 'Administration';
+  }
   return tier === 'SUPPORTER' ? 'Ravito' : 'Gratuit';
 }
 
-export function planTagline(tier: SubscriptionTier) {
+export function planTagline(tier: SubscriptionTier, isAdmin = false) {
+  if (isAdmin) {
+    return 'Acces administrateur avec quotas illimites.';
+  }
   return tier === 'SUPPORTER' ?
       "Tu soutiens l'auteur et tu debloques des quotas elargis."
     : 'Plan de base pour demarrer.';
 }
 
-export function getPlanLimits(tier: SubscriptionTier): SubscriptionPlanLimits {
+export function getPlanLimits(
+  tier: SubscriptionTier,
+  isAdmin = false,
+): SubscriptionPlanLimits {
+  if (isAdmin) {
+    return adminUnlimitedLimits;
+  }
   return limitsByTier[tier];
 }
 
 function quotaDefinitionForFeature(
   tier: SubscriptionTier,
+  isAdmin: boolean,
   feature: UsageFeature,
 ): FeatureQuotaDefinition {
-  const limits = getPlanLimits(tier);
+  const limits = getPlanLimits(tier, isAdmin);
   if (feature === 'AI_REQUEST') {
     return {
       limit: limits.aiRequestsPerDay,
@@ -102,6 +122,7 @@ export interface ConsumedQuota {
   userId: string;
   feature: UsageFeature;
   tier: SubscriptionTier;
+  isUnlimited: boolean;
   limit: number;
   used: number;
   remaining: number;
@@ -117,7 +138,7 @@ export async function consumeQuota(
 ): Promise<ConsumedQuota> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { subscriptionTier: true },
+    select: { subscriptionTier: true, isAdmin: true },
   });
 
   if (!user) {
@@ -125,7 +146,27 @@ export async function consumeQuota(
   }
 
   const tier = user.subscriptionTier;
-  const definition = quotaDefinitionForFeature(tier, feature);
+  const isUnlimited = !!user.isAdmin;
+
+  if (isUnlimited) {
+    const now = new Date();
+    return {
+      allowed: true,
+      userId,
+      feature,
+      tier,
+      isUnlimited: true,
+      limit: Number.MAX_SAFE_INTEGER,
+      used: 0,
+      remaining: Number.MAX_SAFE_INTEGER,
+      window: 'day',
+      bucketStart: startOfUtcDay(now).toISOString(),
+      resetAt: now.toISOString(),
+      message: null,
+    };
+  }
+
+  const definition = quotaDefinitionForFeature(tier, isUnlimited, feature);
   const bucketStart =
     definition.window === 'day' ? startOfUtcDay() : startOfUtcIsoWeek();
 
@@ -192,6 +233,7 @@ export async function consumeQuota(
     userId,
     feature,
     tier,
+    isUnlimited: false,
     limit: definition.limit,
     used,
     remaining,

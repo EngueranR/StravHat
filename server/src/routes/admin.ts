@@ -61,12 +61,12 @@ function dayKeyUtc(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function mapPlan(tier: SubscriptionTier) {
+function mapPlan(tier: SubscriptionTier, isAdmin = false) {
   return {
     tier,
-    name: planDisplayName(tier),
-    tagline: planTagline(tier),
-    limits: getPlanLimits(tier),
+    name: planDisplayName(tier, isAdmin),
+    tagline: planTagline(tier, isAdmin),
+    limits: getPlanLimits(tier, isAdmin),
   };
 }
 
@@ -297,7 +297,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         queues: {
           pendingUsers: pendingUsers.map((row) => ({
             ...row,
-            subscription: mapPlan(row.subscriptionTier),
+            subscription: mapPlan(row.subscriptionTier, false),
           })),
           recentBans,
           recentSecurityEvents,
@@ -394,7 +394,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
           activityCount: row._count.activities,
           trainingPlanCount: row._count.trainingPlans,
           securityEventCount: row._count.securityEvents,
-          subscription: mapPlan(row.subscriptionTier),
+          subscription: mapPlan(row.subscriptionTier, row.isAdmin),
         })),
       };
     },
@@ -541,7 +541,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
           bannedReason: updated.bannedReason,
           language: updated.language === "en" ? "en" : "fr",
           updatedAt: updated.updatedAt,
-          subscription: mapPlan(updated.subscriptionTier),
+          subscription: mapPlan(updated.subscriptionTier, updated.isAdmin),
         },
       };
     },

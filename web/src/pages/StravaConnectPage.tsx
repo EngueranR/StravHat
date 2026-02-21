@@ -64,8 +64,14 @@ export function StravaConnectPage() {
   }, [defaultRedirectUri, token]);
 
   if (user?.connectedToStrava) {
-    return <Navigate replace to='/analytics' />;
+    return <Navigate replace to={user?.hasImportedActivities ? '/analytics' : '/settings'} />;
   }
+
+  const hasCredentialsConfigured = !!status?.hasCustomCredentials;
+  const activeStepLabel =
+    hasCredentialsConfigured ?
+      'Etape active: 2/2 - connecte Strava avec OAuth.'
+    : 'Etape active: 1/2 - enregistre tes credentials Strava.';
 
   const refreshStatus = async () => {
     if (!token) {
@@ -84,6 +90,14 @@ export function StravaConnectPage() {
 
     if (!token) {
       setError('Session expiree.');
+      return;
+    }
+    if (!currentPassword.trim()) {
+      setError('Mot de passe courant requis pour valider la modification.');
+      return;
+    }
+    if (!redirectUri.trim()) {
+      setError('Redirect URI obligatoire.');
       return;
     }
 
@@ -160,7 +174,7 @@ export function StravaConnectPage() {
 
     if (!status?.hasCustomCredentials) {
       setError(
-        "Configure d'abord les credentials Strava (Client ID / Secret / Redirect URI).",
+        "Etape 1 manquante: enregistre d'abord tes credentials Strava.",
       );
       return;
     }
@@ -184,30 +198,39 @@ export function StravaConnectPage() {
     <div className='space-y-5'>
       <PageHeader
         title='Connexion Strava'
-        description='Une seule page: configure tes credentials puis connecte OAuth.'
+        description='Parcours simple en 2 etapes: 1) credentials 2) OAuth.'
       />
 
       <Card>
-        <div className='space-y-3'>
-          <p className='text-sm font-semibold'>Configuration rapide</p>
-          <p className='text-xs text-muted'>
-            1) Cree ton application sur{' '}
-            <a
-              className='underline'
-              href='https://www.strava.com/settings/api'
-              rel='noreferrer'
-              target='_blank'
-            >
-              strava.com/settings/api
-            </a>
-            .
-          </p>
-          <p className='text-xs text-muted'>
-            2) Authorization Callback Domain: <span className='font-mono'>{callbackDomain}</span>
-          </p>
-          <p className='text-xs text-muted'>
-            3) Redirect URI: <span className='font-mono'>{defaultRedirectUri}</span>
-          </p>
+        <div className='space-y-4'>
+          <p className='text-sm font-semibold'>Guide rapide</p>
+          <ol className='space-y-2 text-xs text-muted'>
+            <li className='rounded-lg border border-black/10 bg-black/[0.03] p-2'>
+              <p className='font-semibold text-ink'>1) Cree/ouvre ton app Strava</p>
+              <a
+                className='underline'
+                href='https://www.strava.com/settings/api'
+                rel='noreferrer'
+                target='_blank'
+              >
+                strava.com/settings/api
+              </a>
+            </li>
+            <li className='rounded-lg border border-black/10 bg-black/[0.03] p-2'>
+              <p className='font-semibold text-ink'>2) Copie ces valeurs dans Strava</p>
+              <p>
+                Authorization Callback Domain:{' '}
+                <span className='font-mono'>{callbackDomain}</span>
+              </p>
+              <p>
+                Redirect URI: <span className='font-mono'>{defaultRedirectUri}</span>
+              </p>
+            </li>
+            <li className='rounded-lg border border-black/10 bg-black/[0.03] p-2'>
+              <p className='font-semibold text-ink'>3) Reviens ici et suis les 2 boutons</p>
+              <p>Etape 1: sauvegarder credentials, puis Etape 2: OAuth.</p>
+            </li>
+          </ol>
         </div>
       </Card>
 
@@ -217,10 +240,15 @@ export function StravaConnectPage() {
         ) : (
           <div className='space-y-4'>
             <div className='rounded-xl border border-black/10 bg-black/[0.03] p-3 text-xs text-muted'>
-              Etat credentials: {status?.hasCustomCredentials ? 'configures' : 'non configures'}
+              <p className='font-semibold text-ink'>{activeStepLabel}</p>
+              <p className='mt-1'>
+                Etat credentials:{' '}
+                {hasCredentialsConfigured ? 'configures' : 'non configures'}
+              </p>
             </div>
 
             <form className='space-y-3' onSubmit={onSave}>
+              <p className='text-xs font-semibold text-ink'>Etape 1/2 - Credentials Strava</p>
               <div className='space-y-1.5'>
                 <label className='text-xs text-muted' htmlFor='strava-client-id'>
                   Strava Client ID
@@ -283,6 +311,9 @@ export function StravaConnectPage() {
                   type='password'
                   value={currentPassword}
                 />
+                <p className='text-[11px] text-muted'>
+                  Champ obligatoire pour sauvegarder/supprimer les credentials.
+                </p>
               </div>
 
               <div className='flex flex-wrap gap-2'>
@@ -291,11 +322,11 @@ export function StravaConnectPage() {
                   disabled={saving}
                   type='submit'
                 >
-                  {saving ? 'Sauvegarde...' : 'Sauvegarder credentials'}
+                  {saving ? 'Sauvegarde...' : 'Etape 1 - Sauvegarder credentials'}
                 </button>
                 <button
                   className={secondaryButtonClass}
-                  disabled={resetting || !status?.hasCustomCredentials}
+                  disabled={resetting || !hasCredentialsConfigured}
                   onClick={onReset}
                   type='button'
                 >
@@ -305,17 +336,26 @@ export function StravaConnectPage() {
             </form>
 
             <div className='rounded-xl border border-black/10 bg-white/70 p-3'>
+              <p className='text-xs font-semibold text-ink'>Etape 2/2 - OAuth Strava</p>
               <p className='text-xs text-muted'>
-                Une fois les credentials configures, lance la connexion OAuth.
+                {hasCredentialsConfigured ?
+                  'Credentials OK. Clique ci-dessous pour lancer OAuth.'
+                : 'Commence par l etape 1 (credentials) pour activer OAuth.'}
               </p>
               <button
                 className={`mt-2 px-4 ${primaryButtonClass}`}
-                disabled={oauthLoading || !status?.hasCustomCredentials}
+                disabled={oauthLoading || !hasCredentialsConfigured}
                 onClick={startStravaAuth}
                 type='button'
               >
-                {oauthLoading ? 'Redirection...' : 'Connecter Strava (OAuth)'}
+                {oauthLoading ? 'Redirection...' : 'Etape 2 - Connecter Strava (OAuth)'}
               </button>
+              {hasCredentialsConfigured ? (
+                <p className='mt-2 text-[11px] text-muted'>
+                  Apres validation Strava, tu seras redirige automatiquement vers
+                  Parametres (section Import).
+                </p>
+              ) : null}
             </div>
 
             {error ? <p className='text-sm text-red-700'>{error}</p> : null}

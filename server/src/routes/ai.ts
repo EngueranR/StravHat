@@ -19,6 +19,7 @@ import {
 } from "../services/ai.js";
 import { consumeQuota } from "../services/subscription.js";
 import { buildLoadModel } from "../utils/analytics.js";
+import { buildRunOnlyActivityWhere, isRunLikeActivityType } from "../utils/runActivities.js";
 
 const analyzeSchema = z.object({
   page: z.string().min(1).max(80),
@@ -250,16 +251,6 @@ function quantile(sortedValues: number[], q: number) {
   return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
 }
 
-function isRunActivity(activity: { sportType: string; type: string }) {
-  const normalizedSport = (activity.sportType ?? "").toLowerCase();
-  const normalizedType = (activity.type ?? "").toLowerCase();
-  return (
-    normalizedSport.includes("run") ||
-    normalizedSport.includes("trail") ||
-    normalizedType.includes("run")
-  );
-}
-
 function buildTrainingContext(
   activities: Activity[],
   hrMax: number,
@@ -268,7 +259,7 @@ function buildTrainingContext(
     (a, b) => a.startDateLocal.getTime() - b.startDateLocal.getTime(),
   );
   const runActivities = sortedActivities.filter((activity) =>
-    isRunActivity(activity),
+    isRunLikeActivityType(activity),
   );
   const runSamples = runActivities
     .map((activity) => {
@@ -559,7 +550,10 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
         },
       }),
       prisma.activity.findMany({
-        where: { userId: request.userId },
+        where: {
+          userId: request.userId,
+          ...buildRunOnlyActivityWhere(),
+        },
         orderBy: { startDateLocal: "asc" },
       }),
     ]);
@@ -712,7 +706,10 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
           },
         }),
         prisma.activity.findMany({
-          where: { userId: request.userId },
+          where: {
+            userId: request.userId,
+            ...buildRunOnlyActivityWhere(),
+          },
           orderBy: { startDateLocal: "asc" },
         }),
       ]);
@@ -811,7 +808,10 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     async (request) => {
       const body = trainingPlanCommitSchema.parse(request.body);
       const latest = await prisma.activity.findFirst({
-        where: { userId: request.userId },
+        where: {
+          userId: request.userId,
+          ...buildRunOnlyActivityWhere(),
+        },
         orderBy: { startDateLocal: "desc" },
         select: { timezone: true },
       });

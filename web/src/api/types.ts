@@ -35,6 +35,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   connectedToStrava?: boolean;
+  hasImportedActivities?: boolean;
   hasCustomStravaCredentials?: boolean;
 }
 

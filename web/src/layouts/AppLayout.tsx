@@ -2,24 +2,30 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const baseLinks = [
-  { to: '/import', label: 'Import Center' },
-  { to: '/activities', label: 'Activities' },
-  { to: '/analytics', label: 'Analytics Lab' },
-  { to: '/training-plan', label: 'Training Plan' },
+const setupLinks = [
+  { to: '/settings', label: 'Parametres' },
+  { to: '/activities', label: 'Activites' },
+];
+
+const analysisLinks = [
+  { to: '/analytics', label: 'Analyse' },
+  { to: '/training-plan', label: "Plan d'entrainement" },
   { to: '/export', label: 'Export CSV' },
-  { to: '/settings', label: 'Settings' },
 ];
 
 export function AppLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const isStravaConnected = !!user?.connectedToStrava;
+  const hasImportedActivities = !!user?.hasImportedActivities;
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const fullLinks = useMemo(
-    () => (user?.isAdmin ? [...baseLinks, { to: '/admin', label: 'Administration' }] : baseLinks),
-    [user?.isAdmin],
-  );
+  const fullLinks = useMemo(() => {
+    const links = [
+      ...setupLinks,
+      ...(hasImportedActivities ? analysisLinks : []),
+    ];
+    return user?.isAdmin ? [...links, { to: '/admin', label: 'Administration' }] : links;
+  }, [hasImportedActivities, user?.isAdmin]);
 
   useEffect(() => {
     setMobileSheetOpen(false);
@@ -41,7 +47,7 @@ export function AppLayout() {
               onClick={logout}
               type='button'
             >
-              Logout
+              Deconnexion
             </button>
           </header>
           {user?.isAdmin ? (
@@ -62,15 +68,21 @@ export function AppLayout() {
     );
   }
 
-  const mobileQuickLinks = [
-    { to: '/analytics', label: 'Analytics' },
-    { to: '/import', label: 'Import' },
-    { to: '/activities', label: 'Activities' },
-    { to: '/settings', label: 'Settings' },
-  ];
+  const mobileQuickLinks =
+    hasImportedActivities ?
+      [
+        { to: '/analytics', label: 'Analyse' },
+        { to: '/activities', label: 'Activites' },
+        { to: '/settings', label: 'Parametres' },
+      ]
+    : [
+        { to: '/settings', label: 'Parametres' },
+        { to: '/activities', label: 'Activites' },
+      ];
   const mobileMoreLinks = fullLinks.filter(
     (link) => !mobileQuickLinks.some((quickLink) => quickLink.to === link.to),
   );
+  const hasMobileMoreLinks = mobileMoreLinks.length > 0;
 
   const desktopNavContent = (
     <nav className='grid grid-cols-1 gap-1'>
@@ -121,7 +133,7 @@ export function AppLayout() {
         <header className='mb-4 rounded-2xl border border-black/10 bg-panel p-3 shadow-panel lg:hidden'>
           <p className='text-lg font-semibold'>StravHat</p>
           <p className='mt-1 text-xs text-muted'>
-            Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
+            ID athlete: {user?.stravaAthleteId ?? 'non lie'}
           </p>
         </header>
 
@@ -155,7 +167,7 @@ export function AppLayout() {
                 onClick={logout}
                 type='button'
               >
-                Logout
+                Deconnexion
               </button>
             </section>
           </>
@@ -166,7 +178,7 @@ export function AppLayout() {
             <div className='mb-6'>
               <p className='text-lg font-semibold'>StravHat</p>
               <p className='mt-2 text-xs text-muted'>
-                Athlete ID: {user?.stravaAthleteId ?? 'not linked'}
+                ID athlete: {user?.stravaAthleteId ?? 'non lie'}
               </p>
             </div>
             {desktopNavContent}
@@ -175,7 +187,7 @@ export function AppLayout() {
               onClick={logout}
               type='button'
             >
-              Logout
+              Deconnexion
             </button>
           </aside>
           <main className='min-w-0 space-y-6 overflow-x-hidden pb-28 lg:pb-8'>
@@ -186,14 +198,19 @@ export function AppLayout() {
 
       <nav className='mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-panel/95 px-2 py-2 shadow-panel backdrop-blur lg:hidden'>
         <div className='mx-auto max-w-[1400px]'>
-          <div className='grid grid-cols-5 gap-1'>
+          <div
+            className='grid gap-1'
+            style={{
+              gridTemplateColumns: `repeat(${mobileQuickLinks.length + (hasMobileMoreLinks ? 1 : 0)}, minmax(0, 1fr))`,
+            }}
+          >
             {mobileQuickLinks.map((link) => {
               const active = location.pathname.startsWith(link.to);
               return (
                 <Link
                   key={`quick-${link.to}`}
                   to={link.to}
-                  className={`inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-2 text-center text-[11px] font-medium transition ${
+                  className={`inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[10px] font-medium leading-none whitespace-nowrap transition ${
                     active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
                   }`}
                 >
@@ -201,13 +218,15 @@ export function AppLayout() {
                 </Link>
               );
             })}
-            <button
-              type='button'
-              onClick={() => setMobileSheetOpen(true)}
-              className='inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-2 text-center text-[11px] font-medium text-ink transition hover:bg-black/5'
-            >
-              Plus
-            </button>
+            {hasMobileMoreLinks ? (
+              <button
+                type='button'
+                onClick={() => setMobileSheetOpen(true)}
+                className='inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[10px] font-medium leading-none whitespace-nowrap text-ink transition hover:bg-black/5'
+              >
+                Plus
+              </button>
+            ) : null}
           </div>
         </div>
       </nav>

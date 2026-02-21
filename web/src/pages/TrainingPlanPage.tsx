@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../api/client';
 import { Card } from '../components/Card';
-import { MobileTabs } from '../components/MobileTabs';
 import { PageHeader } from '../components/PageHeader';
 import { SectionHeader } from '../components/SectionHeader';
 import {
@@ -12,7 +11,6 @@ import {
   textareaClass,
 } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 import { number } from '../utils/format';
 
 interface TrainingPlanSession {
@@ -67,7 +65,6 @@ interface TrainingPlanResponse {
 type BuilderGoalType = 'marathon' | 'half_marathon' | '10k' | '5k' | 'custom';
 type BuilderFocus = 'balanced' | 'performance' | 'safety';
 type LongRunDay = 'sat' | 'sun';
-type TrainingPlanMobileTab = 'builder' | 'plan';
 
 const goalDistanceDefaults: Record<
   Exclude<BuilderGoalType, 'custom'>,
@@ -233,8 +230,6 @@ const minuteOptions = Array.from({ length: 60 }, (_, index) =>
 
 export function TrainingPlanPage() {
   const { token, user } = useAuth();
-  const isMobile = useMediaQuery('(max-width: 1023px)');
-  const [mobileTab, setMobileTab] = useState<TrainingPlanMobileTab>('builder');
   const [goalType, setGoalType] = useState<BuilderGoalType>('marathon');
   const [customDistanceKm, setCustomDistanceKm] = useState('');
   const [goalTargetHour, setGoalTargetHour] = useState('03');
@@ -364,9 +359,6 @@ export function TrainingPlanPage() {
       weeksToRace,
     };
   }, [raceDate]);
-  const showBuilderPanel = !isMobile || mobileTab === 'builder';
-  const showPlanPanel = !isMobile || mobileTab === 'plan';
-
   const runTrainingPlanGeneration = async () => {
     if (!token) {
       setTrainingError('Session utilisateur manquante.');
@@ -485,19 +477,6 @@ export function TrainingPlanPage() {
         title="Plan d'entrainement"
         description="Generation IA d'un plan running detaille et adapte automatiquement au delai reel jusqu'a ta course."
       />
-      {isMobile ?
-        <MobileTabs
-          tabs={[
-            { key: 'builder', label: 'Parametres' },
-            {
-              key: 'plan',
-              label: trainingPlan ? 'Plan genere' : 'Plan',
-            },
-          ]}
-          activeKey={mobileTab}
-          onChange={setMobileTab}
-        />
-      : null}
 
       <Card>
         <SectionHeader
@@ -516,9 +495,7 @@ export function TrainingPlanPage() {
         {collapsed ?
           <p className='text-xs text-muted'>Section repliee.</p>
         : <>
-            {showBuilderPanel ?
-              <>
-                <div className='grid gap-3 md:grid-cols-2 lg:grid-cols-3'>
+            <div className='grid gap-3 md:grid-cols-2 lg:grid-cols-3'>
                   <div className='grid content-start gap-1 text-xs text-muted'>
                     <label htmlFor='plan-goal-type'>Objectif cible</label>
                     <select
@@ -658,59 +635,47 @@ export function TrainingPlanPage() {
                       }}
                     />
                   </div>
-                </div>
-                <p className='mt-2 text-xs text-muted'>
-                  {objectivePreview ??
-                    "Complete les selections ci-dessus pour generer l'objectif automatiquement."}
-                </p>
-                {raceDateInsights ?
-                  <p className='mt-1 text-xs text-muted'>
-                    Il reste {number(raceDateInsights.daysToRace, 0)} jours
-                    avant la course, soit environ{' '}
-                    {number(raceDateInsights.weeksToRace, 0)} semaines.
-                  </p>
-                : null}
-
-                <div className='mt-3 flex flex-wrap gap-2'>
-                  <button
-                    className={primaryButtonClass}
-                    type='button'
-                    onClick={() => {
-                      void runTrainingPlanGeneration();
-                    }}
-                    disabled={trainingLoading}
-                  >
-                    {trainingLoading ? 'Generation IA...' : 'Generer le plan'}
-                  </button>
-                </div>
-
-                {trainingError ?
-                  <p className='mt-3 text-sm text-red-700'>{trainingError}</p>
-                : null}
-                {trainingAdaptResult ?
-                  <p className='mt-2 text-sm text-emerald-700'>
-                    {trainingAdaptResult}
-                  </p>
-                : null}
-              </>
+            </div>
+            <p className='mt-2 text-xs text-muted'>
+              {objectivePreview ??
+                "Complete les selections ci-dessus pour generer l'objectif automatiquement."}
+            </p>
+            {raceDateInsights ?
+              <p className='mt-1 text-xs text-muted'>
+                Il reste {number(raceDateInsights.daysToRace, 0)} jours avant
+                la course, soit environ{' '}
+                {number(raceDateInsights.weeksToRace, 0)} semaines.
+              </p>
             : null}
 
-            {showPlanPanel ?
-              <>
-                {!showBuilderPanel && trainingError ?
-                  <p className='mb-2 text-sm text-red-700'>{trainingError}</p>
-                : null}
-                {!showBuilderPanel && trainingAdaptResult ?
-                  <p className='mb-2 text-sm text-emerald-700'>
-                    {trainingAdaptResult}
-                  </p>
-                : null}
-                {!trainingPlan ?
-                  <p className='mt-4 text-xs text-muted'>
-                    Aucun plan genere pour le moment. Lance la generation dans
-                    l&apos;onglet parametres.
-                  </p>
-                : <div className='mt-4 space-y-3'>
+            <div className='mt-3 flex flex-wrap gap-2'>
+              <button
+                className={primaryButtonClass}
+                type='button'
+                onClick={() => {
+                  void runTrainingPlanGeneration();
+                }}
+                disabled={trainingLoading}
+              >
+                {trainingLoading ? 'Generation IA...' : 'Generer le plan'}
+              </button>
+            </div>
+
+            {trainingError ?
+              <p className='mt-3 text-sm text-red-700'>{trainingError}</p>
+            : null}
+            {trainingAdaptResult ?
+              <p className='mt-2 text-sm text-emerald-700'>
+                {trainingAdaptResult}
+              </p>
+            : null}
+
+            {!trainingPlan ?
+              <p className='mt-4 text-xs text-muted'>
+                Aucun plan genere pour le moment. Lance la generation dans la
+                section parametres.
+              </p>
+            : <div className='mt-4 space-y-3'>
                     <div className='rounded-xl border border-black/10 bg-black/[0.02] p-3'>
                       <p className='text-sm font-semibold'>
                         {trainingPlan.title}
@@ -913,9 +878,7 @@ export function TrainingPlanPage() {
                       </details>
                     ))}
                   </div>
-                }
-              </>
-            : null}
+            }
           </>
         }
       </Card>

@@ -21,6 +21,7 @@ import {
   passwordPolicyError,
   verifyPassword,
 } from "../utils/security.js";
+import { buildRunOnlyActivityWhere } from "../utils/runActivities.js";
 
 const LOGIN_LIMIT = 5;
 const LOGIN_WINDOW_MS = 60 * 60 * 1000;
@@ -81,7 +82,7 @@ type PublicUserRecord = Prisma.UserGetPayload<{
   select: typeof publicUserSelect;
 }>;
 
-function mapUser(user: PublicUserRecord) {
+function mapUser(user: PublicUserRecord, hasImportedActivities: boolean) {
   return {
     id: user.id,
     email: user.email,
@@ -102,13 +103,14 @@ function mapUser(user: PublicUserRecord) {
     subscriptionTier: user.subscriptionTier,
     subscription: {
       tier: user.subscriptionTier,
-      name: planDisplayName(user.subscriptionTier),
-      tagline: planTagline(user.subscriptionTier),
-      limits: getPlanLimits(user.subscriptionTier),
+      name: planDisplayName(user.subscriptionTier, user.isAdmin),
+      tagline: planTagline(user.subscriptionTier, user.isAdmin),
+      limits: getPlanLimits(user.subscriptionTier, user.isAdmin),
     },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     connectedToStrava: !!user.token,
+    hasImportedActivities,
     hasCustomStravaCredentials: !!(
       user.stravaClientIdEnc &&
       user.stravaClientSecretEnc &&
@@ -118,16 +120,25 @@ function mapUser(user: PublicUserRecord) {
 }
 
 async function loadPublicUser(db: PrismaClient, userId: string) {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: publicUserSelect,
-  });
+  const runOnlyWhere = buildRunOnlyActivityWhere();
+  const [user, runActivitiesCount] = await Promise.all([
+    db.user.findUnique({
+      where: { id: userId },
+      select: publicUserSelect,
+    }),
+    db.activity.count({
+      where: {
+        userId,
+        ...runOnlyWhere,
+      },
+    }),
+  ]);
 
   if (!user) {
     throw new Error("User not found");
   }
 
-  return mapUser(user);
+  return mapUser(user, runActivitiesCount > 0);
 }
 
 export const authRoutes: FastifyPluginAsync = async (app) => {

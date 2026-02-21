@@ -10,6 +10,8 @@ export function OAuthCallbackPage() {
   const { connectStravaWithCode, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const callbackDomain = window.location.host;
+  const callbackUri = `${window.location.origin}/auth/callback`;
 
   useEffect(() => {
     if (startedRef.current) {
@@ -40,7 +42,7 @@ export function OAuthCallbackPage() {
       const currentState = sessionStorage.getItem(lockKey);
 
       if (currentState === "done") {
-        navigate("/import", { replace: true });
+        navigate("/settings", { replace: true });
         return;
       }
 
@@ -54,7 +56,7 @@ export function OAuthCallbackPage() {
       try {
         await connectStravaWithCode(code);
         sessionStorage.setItem(lockKey, "done");
-        navigate("/import", { replace: true });
+        navigate("/settings", { replace: true });
       } catch (err) {
         sessionStorage.removeItem(lockKey);
         setError(err instanceof Error ? err.message : "Echec OAuth");
@@ -78,12 +80,24 @@ export function OAuthCallbackPage() {
           {error ? (
             <>
               <p className="text-sm text-red-700">{error}</p>
+              <div className="rounded-xl border border-black/10 bg-black/[0.03] p-3 text-left text-xs text-muted">
+                <p className="font-semibold text-ink">Verifications rapides</p>
+                <p className="mt-1">
+                  1) Callback Domain dans Strava = <span className="font-mono">{callbackDomain}</span>
+                </p>
+                <p>
+                  2) Redirect URI dans Strava = <span className="font-mono">{callbackUri}</span>
+                </p>
+                <p>3) Client ID / Secret de cette meme application Strava</p>
+              </div>
               <Link className={`inline-flex ${secondaryButtonClass}`} to={token ? "/connect-strava" : "/login"}>
                 {token ? "Retour connexion Strava" : "Retour login"}
               </Link>
             </>
           ) : (
-            <p className="text-sm text-muted">Echange du code OAuth contre un token session.</p>
+            <p className="text-sm text-muted">
+              Echange du code OAuth contre un token session. Ne ferme pas cette page.
+            </p>
           )}
         </div>
       </Card>

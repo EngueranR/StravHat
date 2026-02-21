@@ -11,6 +11,7 @@ import {
   encryptSecret,
   verifyPassword,
 } from "../utils/security.js";
+import { buildRunOnlyActivityWhere } from "../utils/runActivities.js";
 
 const nullableNumber = (min: number, max: number) =>
   z.preprocess(
@@ -104,7 +105,7 @@ type MeRecord = Prisma.UserGetPayload<{
   select: typeof meSelect;
 }>;
 
-function mapMe(user: MeRecord) {
+function mapMe(user: MeRecord, hasImportedActivities: boolean) {
   return {
     id: user.id,
     email: user.email,
@@ -126,13 +127,14 @@ function mapMe(user: MeRecord) {
     subscriptionTier: user.subscriptionTier,
     subscription: {
       tier: user.subscriptionTier,
-      name: planDisplayName(user.subscriptionTier),
-      tagline: planTagline(user.subscriptionTier),
-      limits: getPlanLimits(user.subscriptionTier),
+      name: planDisplayName(user.subscriptionTier, user.isAdmin),
+      tagline: planTagline(user.subscriptionTier, user.isAdmin),
+      limits: getPlanLimits(user.subscriptionTier, user.isAdmin),
     },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     connectedToStrava: !!user.token,
+    hasImportedActivities,
     hasCustomStravaCredentials: !!(
       user.stravaClientIdEnc &&
       user.stravaClientSecretEnc &&
@@ -142,16 +144,25 @@ function mapMe(user: MeRecord) {
 }
 
 async function loadMe(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: meSelect,
-  });
+  const runOnlyWhere = buildRunOnlyActivityWhere();
+  const [user, runActivitiesCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: meSelect,
+    }),
+    prisma.activity.count({
+      where: {
+        userId,
+        ...runOnlyWhere,
+      },
+    }),
+  ]);
 
   if (!user) {
     throw new Error("User not found");
   }
 
-  return mapMe(user);
+  return mapMe(user, runActivitiesCount > 0);
 }
 
 function isAllowedRedirectUri(value: string) {

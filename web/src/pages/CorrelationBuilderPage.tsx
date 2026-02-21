@@ -6,7 +6,6 @@ import { ActivityModal } from '../components/ActivityModal';
 import { AIInsightButton } from '../components/AIInsightButton';
 import { Card } from '../components/Card';
 import { FilterToggleButton } from '../components/FilterToggleButton';
-import { MobileTabs } from '../components/MobileTabs';
 import { PageHeader } from '../components/PageHeader';
 import { roundIconButtonClass } from '../components/InfoHint';
 import { SectionHeader } from '../components/SectionHeader';
@@ -84,7 +83,6 @@ type SectionKey =
   | 'scatter'
   | 'matrix'
   | 'analysis';
-type CorrelationMobileTab = 'selection' | 'scatter' | 'matrix' | 'analysis';
 
 interface CorrelationBuilderPageProps {
   embedded?: boolean;
@@ -95,7 +93,6 @@ export function CorrelationBuilderPage({
 }: CorrelationBuilderPageProps) {
   const { token, user } = useAuth();
   const isMobile = useMediaQuery('(max-width: 1023px)');
-  const [mobileTab, setMobileTab] = useState<CorrelationMobileTab>('selection');
   const [xVar, setXVar] = useState('avgSpeed');
   const [yVar, setYVar] = useState('avgHR');
   const [colorVar, setColorVar] = useState('cadence');
@@ -109,7 +106,7 @@ export function CorrelationBuilderPage({
   const [collapsedSections, setCollapsedSections] = useState<
     Record<SectionKey, boolean>
   >({
-    activitySelection: isMobile,
+    activitySelection: true,
     selectedActivities: true,
     scatter: false,
     matrix: false,
@@ -851,23 +848,10 @@ export function CorrelationBuilderPage({
       {!embedded ? (
         <PageHeader
           description='Selectionne des activites, puis clique sur les metriques a correler. Aucun champ manuel.'
-          title='Correlation Builder'
+          title='Constructeur de correlations'
         />
       ) : null}
-      {isMobile ?
-        <MobileTabs
-          activeKey={mobileTab}
-          onChange={setMobileTab}
-          tabs={[
-            { key: 'selection', label: 'Selection' },
-            { key: 'scatter', label: 'Nuage' },
-            { key: 'matrix', label: 'Matrice' },
-            { key: 'analysis', label: 'Analyse' },
-          ]}
-        />
-      : null}
-
-      {!isMobile || mobileTab === 'selection' ? <Card>
+      <Card>
         <SectionHeader
           title='1. Selection des activites'
           subtitle={`${selectedIds.size} selectionnees`}
@@ -889,7 +873,7 @@ export function CorrelationBuilderPage({
           </p>
         ) : null}
         {collapsedSections.activitySelection ?
-          <p className='text-xs text-muted'>Section repliee.</p>
+          <p className='text-[11px] text-muted/80'>Filtres masques.</p>
         : <>
             <div className='mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5'>
               <input
@@ -1151,9 +1135,9 @@ export function CorrelationBuilderPage({
             </div>
           </>
         }
-      </Card> : null}
+      </Card>
 
-      {!isMobile || mobileTab === 'selection' ? <Card>
+      <Card>
         <SectionHeader
           title='2. Activites selectionnees'
           subtitle={`${selectedList.length} selectionnees`}
@@ -1286,13 +1270,13 @@ export function CorrelationBuilderPage({
             </table>
           </div>
         }
-      </Card> : null}
+      </Card>
 
       {error ?
         <p className='text-sm text-red-700'>{error}</p>
       : null}
 
-      {!isMobile || mobileTab === 'scatter' ? <Card>
+      <Card>
         <SectionHeader
           title='3. Nuage de points'
           subtitle={`Clique sur un point pour ouvrir l'activite. Points affiches: ${pointsCount} / ${selectedIds.size || 'toutes'}`}
@@ -1513,9 +1497,9 @@ export function CorrelationBuilderPage({
             />
           </>
         }
-      </Card> : null}
+      </Card>
 
-      {!isMobile || mobileTab === 'matrix' ? <Card>
+      <Card>
         <SectionHeader
           title='4. Matrice des correlations'
           subtitle='Vue globale des relations entre metriques'
@@ -1625,9 +1609,9 @@ export function CorrelationBuilderPage({
             }
           </>
         }
-      </Card> : null}
+      </Card>
 
-      {!isMobile || mobileTab === 'analysis' ? <Card>
+      <Card>
         <SectionHeader
           title='5. Analyse'
           subtitle='Resume automatique de la correlation'
@@ -1674,7 +1658,7 @@ export function CorrelationBuilderPage({
             Ajoute au moins 2 activites pour calculer une tendance.
           </p>
         }
-      </Card> : null}
+      </Card>
 
       {selectedActivity ?
         <ActivityModal

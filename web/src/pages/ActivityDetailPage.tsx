@@ -402,11 +402,11 @@ export function ActivityDetailPage() {
 
   return (
     <div>
-      <PageHeader description="Toutes les metriques disponibles pour l'activite." title="Activity Detail" />
+      <PageHeader description="Toutes les metriques disponibles pour l'activite." title="Detail activite" />
       <Card>
         <div className="mb-4">
           <Link className="text-sm underline" to="/activities">
-            Retour activities
+            Retour activites
           </Link>
         </div>
         <SectionHeader

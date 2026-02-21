@@ -538,11 +538,53 @@ function buildCompetencyRadarOption(
   metrics: Array<{ name: string; value: number }>,
   profileLabel: string,
 ) {
+  const wrapAxisLabel = (value: string, maxCharsPerLine = 12) => {
+    const rawWords = value.split(/\s+/).filter((word) => word.length > 0);
+    const words = rawWords.flatMap((word) => {
+      if (word.length <= maxCharsPerLine) {
+        return [word];
+      }
+
+      const chunks: string[] = [];
+      for (let index = 0; index < word.length; index += maxCharsPerLine) {
+        chunks.push(word.slice(index, index + maxCharsPerLine));
+      }
+      return chunks;
+    });
+    if (words.length <= 1 && value.length <= maxCharsPerLine) {
+      return value;
+    }
+
+    const lines: string[] = [];
+    let current = '';
+
+    for (const word of words.length > 0 ? words : [value]) {
+      if (!current) {
+        current = word;
+        continue;
+      }
+
+      if (`${current} ${word}`.length <= maxCharsPerLine) {
+        current = `${current} ${word}`;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+
+    if (current) {
+      lines.push(current);
+    }
+
+    return lines.join('\n');
+  };
+
   return {
     backgroundColor: 'transparent',
     animationDuration: 350,
     animationEasing: 'cubicOut',
     tooltip: {
+      confine: true,
       backgroundColor: competencyRadarPalette.tooltipBg,
       borderWidth: 0,
       textStyle: {
@@ -550,6 +592,7 @@ function buildCompetencyRadarOption(
         fontSize: 11,
       },
       padding: [8, 10],
+      extraCssText: 'max-width: min(260px, calc(100vw - 16px)); white-space: normal;',
       formatter: (params: { data: { value: number[] } }) => {
         const values = params.data.value ?? [];
         return metrics
@@ -562,9 +605,12 @@ function buildCompetencyRadarOption(
     },
     radar: {
       shape: 'polygon',
-      radius: '68%',
+      radius: '62%',
       splitNumber: 5,
-      indicator: metrics.map((metric) => ({ name: metric.name, max: 100 })),
+      indicator: metrics.map((metric) => ({
+        name: wrapAxisLabel(metric.name),
+        max: 100,
+      })),
       axisName: {
         color: competencyRadarPalette.axisLabel,
         fontSize: 11,
@@ -621,6 +667,26 @@ function buildCompetencyRadarOption(
             name: profileLabel,
           },
         ],
+      },
+    ],
+    media: [
+      {
+        query: {
+          maxWidth: 430,
+        },
+        option: {
+          radar: {
+            radius: '54%',
+            axisName: {
+              fontSize: 10,
+            },
+          },
+          series: [
+            {
+              symbolSize: 6,
+            },
+          ],
+        },
       },
     ],
   };
@@ -1330,7 +1396,7 @@ function ReliabilityGauge({ score }: { score: number }) {
 type AnalyticsView = 'lab' | 'historical' | 'correlations';
 type HeartRateZoneBasis = 'avg' | 'max';
 type LabTheme = 'health' | 'forecast' | 'load' | 'performance' | 'profile';
-type HistoricalTheme = 'setup' | 'insights' | 'advanced' | 'report';
+type HistoricalTheme = 'insights' | 'advanced' | 'report';
 type AnalyticsSectionKey =
   | 'globalFilters'
   | 'labToday'
@@ -1364,8 +1430,7 @@ const labSectionsByTheme: Record<LabTheme, AnalyticsSectionKey[]> = {
 
 const historicalSectionsByTheme: Record<HistoricalTheme, AnalyticsSectionKey[]> =
   {
-    setup: ['histSelection'],
-    insights: ['histSynthesis', 'histSkills', 'histSimple'],
+    insights: ['histSelection', 'histSynthesis', 'histSkills', 'histSimple'],
     advanced: ['histAdvancedMap', 'histAdvancedEvolution'],
     report: ['histNarrative', 'histSessions'],
   };
@@ -2002,7 +2067,7 @@ export function AnalyticsPage() {
   const [activeView, setActiveView] = useState<AnalyticsView>('lab');
   const [labTheme, setLabTheme] = useState<LabTheme>('health');
   const [historicalTheme, setHistoricalTheme] =
-    useState<HistoricalTheme>('setup');
+    useState<HistoricalTheme>('insights');
   const [trendBucket, setTrendBucket] = useState('week');
   const distributionBins = 100;
   const [pivotRow, setPivotRow] = useState('type');
@@ -2055,7 +2120,7 @@ export function AnalyticsPage() {
   const [collapsedSections, setCollapsedSections] = useState<
     Record<AnalyticsSectionKey, boolean>
   >({
-    globalFilters: false,
+    globalFilters: true,
     labToday: false,
     labSkillsRadar: false,
     labReferenceTimes: false,
@@ -2531,7 +2596,7 @@ export function AnalyticsPage() {
 
     const objectiveText =
       targetPaceMinPerKm === null ?
-        'Objectif non defini dans Settings.'
+        'Objectif non defini dans Parametres.'
       : `Objectif: ${number(goalDistanceKm ?? 0, 2)} km en ${goalTimeHours ?? 0}:${(
           goalTimeMinutes ?? 0
         )
@@ -4586,6 +4651,58 @@ export function AnalyticsPage() {
     .slice()
     .sort((a, b) => b.similarity - a.similarity);
   const referenceId = historicalComparison?.reference.id ?? null;
+  const hasLoadSeries = (loadData?.series.length ?? 0) > 0;
+  const hasSkillsRadarData =
+    skillsRadar.option !== null && skillsRadar.metrics.length > 0;
+  const hasReferenceTimesData =
+    referenceTimes.runCount > 0 &&
+    referenceTimes.option !== null &&
+    referenceTimes.estimates.some((row) => row.estimatedSec !== null);
+  const hasHeartRateZonesData =
+    heartRateZonesSummary.hrMax !== null &&
+    activeHeartRateZonesView.sampleSize > 0 &&
+    activeHeartRateZonesView.rows.some((zone) => zone.pct !== null);
+  const hasHeatmapData = (dailyDistance?.series.length ?? 0) > 0;
+  const hasTrendData = trendMetrics.some(
+    (metricDef) => (trendByMetric[metricDef.metric]?.series.length ?? 0) > 0,
+  );
+  const hasDistributionData = distributionMetrics.some((metricDef) => {
+    const metricDistribution = distributionByMetric[metricDef.metric];
+    return (
+      (metricDistribution?.sampleSize ?? 0) > 0 &&
+      (metricDistribution?.bins.length ?? 0) > 0
+    );
+  });
+  const hasPivotData = pivotRows.length > 0 && pivotMetrics.length > 0;
+  const hasHistoricalSynthesisData = historicalMetrics.some(
+    (metric) => metric.first !== null && metric.recent !== null,
+  );
+  const hasHistoricalSkillsData =
+    progressRadar !== null && progressRadar.metrics.length > 0;
+  const hasHistoricalSimpleData =
+    historicalComparison !== null &&
+    historicalComparison.rows.some(
+      (row) => historicalMainMetricMeta.accessor(row.session) !== null,
+    );
+  const hasHistoricalMapData =
+    historicalComparison !== null &&
+    historicalComparison.rows.some(
+      (row) => row.session.hr !== null && row.session.speedKmh !== null,
+    );
+  const hasHistoricalEvolutionData =
+    historicalComparison !== null &&
+    historicalComparison.rows.some(
+      (row) =>
+        row.session.speedKmh !== null ||
+        row.session.hr !== null ||
+        row.session.cadence !== null ||
+        row.session.intensityProxy !== null,
+    );
+  const hasHistoricalNarrativeData =
+    historicalNarrative.length > 1 ||
+    (historicalNarrative[0] !== undefined &&
+      historicalNarrative[0] !== 'Pas assez de signal pour une interpretation robuste.');
+  const hasHistoricalSessionsData = historicalRowsForTable.length > 0;
   const historicalMetricHintByLabel: Record<
     string,
     { description: string; linkHref: string; linkLabel: string }
@@ -4716,8 +4833,8 @@ export function AnalyticsPage() {
   return (
     <div className='min-w-0 overflow-x-clip'>
       <PageHeader
-        description='Analytics organise par themes: sante, pronostic, charge, performance et progres.'
-        title='Analytics Lab'
+        description='Analyse organisee par themes: sante, pronostic, charge, performance et progres.'
+        title='Analyse'
       />
 
       <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
@@ -4771,8 +4888,7 @@ export function AnalyticsPage() {
         <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
           {(
             [
-              { key: 'setup', label: 'Configuration' },
-              { key: 'insights', label: 'Signaux' },
+              { key: 'insights', label: 'Configuration + signaux' },
               { key: 'advanced', label: 'Avance' },
               { key: 'report', label: 'Rapport' },
             ] as Array<{ key: HistoricalTheme; label: string }>
@@ -4809,7 +4925,7 @@ export function AnalyticsPage() {
           onToggleCollapse={() => toggleSection('globalFilters')}
         />
         {collapsedSections.globalFilters ?
-          <p className='text-xs text-muted'>Section repliee.</p>
+          <p className='text-[11px] text-muted/80'>Filtres masques.</p>
         : <>
             <div
               className={`grid gap-3 ${activeView === 'lab' ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
@@ -4888,8 +5004,8 @@ export function AnalyticsPage() {
               champs date manuels commencent au minimum au 1er janvier{' '}
               {currentYear}.
             </p>
-            <details className='mt-4 rounded-lg border border-black/10 bg-black/5 p-3'>
-              <summary className='cursor-pointer text-xs uppercase tracking-wide text-muted'>
+            <details className='mt-3 rounded-lg border border-black/10 bg-black/[0.03] p-2.5'>
+              <summary className='cursor-pointer text-[11px] uppercase tracking-wide text-muted'>
                 Plus de filtres
               </summary>
               <div className='mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
@@ -5230,7 +5346,7 @@ export function AnalyticsPage() {
             </div>
           : null}
 
-          {showLabSection('labToday') ?
+          {showLabSection('labToday') && todayLoadSummary ?
             <Card>
               <SectionHeader
                 title='Etat du jour'
@@ -5257,8 +5373,7 @@ export function AnalyticsPage() {
               />
               {collapsedSections.labToday ?
                 <p className='text-xs text-muted'>Section repliee.</p>
-              : todayLoadSummary ?
-                <>
+              : <>
                   <p className='mb-3 text-xs text-muted'>
                     {todayLoadSummary.isToday ?
                       'Lecture sur la date du jour.'
@@ -5303,18 +5418,16 @@ export function AnalyticsPage() {
                     />
                   </div>
                 </>
-              : <p className='text-xs text-muted'>
-                  Pas de donnees de charge disponibles.
-                </p>
               }
             </Card>
           : null}
 
-          {showLabSection('labSkillsRadar') ?
+          {showLabSection('labSkillsRadar') &&
+          (skillsRadarLoading || skillsRadarError || hasSkillsRadarData) ?
             <Card>
               <SectionHeader
                 title='Radar des competences'
-                subtitle='Profil global base sur toutes les seances + objectif defini dans Settings'
+                subtitle='Profil global base sur toutes les seances + objectif defini dans Parametres'
                 infoHint={{
                   title: 'Radar des competences',
                   description:
@@ -5351,16 +5464,14 @@ export function AnalyticsPage() {
                 </p>
               : skillsRadarError ?
                 <p className='text-xs text-red-700'>{skillsRadarError}</p>
-              : skillsRadar.option === null ?
-                <p className='text-xs text-muted'>{skillsRadar.note}</p>
               : <>
-                  <p className='mb-3 text-xs text-muted'>
+                  <p className='mb-3 break-words text-xs text-muted'>
                     {skillsRadar.objectiveText}
                   </p>
                   <ReactECharts
                     notMerge
-                    option={skillsRadar.option}
-                    style={{ height: 320 }}
+                    option={skillsRadar.option!}
+                    style={{ height: isMobile ? 360 : 320 }}
                   />
                   <div className='mt-3 grid gap-3 md:grid-cols-2'>
                     {skillsRadar.metrics.map((metric) => (
@@ -5368,13 +5479,13 @@ export function AnalyticsPage() {
                         key={`skill-radar-${metric.name}`}
                         className='rounded-lg border border-black/10 bg-black/[0.02] p-3'
                       >
-                        <p className='text-xs font-semibold uppercase tracking-wide text-muted'>
+                        <p className='break-words text-xs font-semibold uppercase tracking-wide text-muted'>
                           {metric.name}
                         </p>
                         <p className='mt-1 text-lg font-semibold'>
                           {number(metric.value, 0)}/100
                         </p>
-                        <p className='mt-1 text-xs text-muted'>
+                        <p className='mt-1 break-words text-xs text-muted'>
                           {metric.detail}
                         </p>
                       </div>
@@ -5385,7 +5496,7 @@ export function AnalyticsPage() {
             </Card>
           : null}
 
-          {showLabSection('labReferenceTimes') ?
+          {showLabSection('labReferenceTimes') && hasReferenceTimesData ?
             <Card>
               <SectionHeader
                 title='Temps de reference (hypothese)'
@@ -5432,8 +5543,6 @@ export function AnalyticsPage() {
               />
               {collapsedSections.labReferenceTimes ?
                 <p className='text-xs text-muted'>Section repliee.</p>
-              : referenceTimes.runCount === 0 ?
-                <p className='text-xs text-muted'>{referenceTimes.note}</p>
               : <>
                   <p className='mb-3 text-xs text-muted'>
                     Hypothese sur {number(referenceTimes.runCount, 0)} courses
@@ -5449,7 +5558,7 @@ export function AnalyticsPage() {
                   : null}
                   <ReactECharts
                     notMerge
-                    option={referenceTimes.option}
+                    option={referenceTimes.option!}
                     style={{ height: 240 }}
                   />
                   <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
@@ -5495,7 +5604,7 @@ export function AnalyticsPage() {
             </Card>
           : null}
 
-          {showLabSection('labHrZones') ?
+          {showLabSection('labHrZones') && hasHeartRateZonesData ?
             <Card>
               <SectionHeader
                 title='Zones cardiaques'
@@ -5542,19 +5651,6 @@ export function AnalyticsPage() {
               />
               {collapsedSections.labHrZones ?
                 <p className='text-xs text-muted'>Section repliee.</p>
-              : !heartRateZonesSummary.hrMax ?
-                <p className='text-xs text-muted'>
-                  FC max indisponible. Renseigne-la dans Settings pour activer
-                  les zones.
-                </p>
-              : (
-                heartRateZonesSummary.avgSampleSize <= 0 &&
-                heartRateZonesSummary.maxSampleSize <= 0
-              ) ?
-                <p className='text-xs text-muted'>
-                  Pas assez de donnees FC pour construire la repartition des
-                  zones.
-                </p>
               : <>
                   <p className='mb-3 text-xs text-muted'>
                     FC max de reference:{' '}
@@ -5593,60 +5689,50 @@ export function AnalyticsPage() {
                       }
                     />
                   </div>
-                  {activeHeartRateZonesView.sampleSize <= 0 ?
-                    <p className='text-xs text-muted'>
-                      Pas assez de donnees sur la lecture{' '}
-                      {activeHeartRateZonesView.basisLabel.toLowerCase()}.
-                      Essaie la lecture{' '}
-                      {activeHeartRateZonesView.alternateBasisLabel.toLowerCase()}{' '}
-                      ({number(activeHeartRateZonesView.alternateSampleSize, 0)}{' '}
-                      activites).
-                    </p>
-                  : <div className='space-y-3'>
-                      {activeHeartRateZonesView.rows.map((zone) => (
-                        <div
-                          className='rounded-xl border border-black/10 bg-black/[0.02] p-3'
-                          key={zone.zone}
-                        >
-                          <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-                            <p className='text-sm font-semibold'>
-                              {zone.zone} · {zone.label}
-                            </p>
-                            <p className='text-xs text-muted'>
-                              {zone.rangeLabel}
-                            </p>
-                          </div>
-                          <div>
-                            <p className='mb-1 text-[11px] uppercase tracking-wide text-muted'>
-                              {activeHeartRateZonesView.basisLabel} (
-                              {number(activeHeartRateZonesView.sampleSize, 0)}{' '}
-                              activites)
-                            </p>
-                            <div className='h-2 rounded-full bg-black/10'>
-                              <div
-                                className={`h-2 rounded-full ${zone.colorClass}`}
-                                style={{
-                                  width: `${zone.pct === null ? 0 : clamp(zone.pct, 0, 100)}%`,
-                                }}
-                              />
-                            </div>
-                            <p className='mt-1 text-xs text-muted'>
-                              {zone.pct === null ?
-                                'n/a'
-                              : `${number(zone.pct, 1)}% (~${number(zone.countEstimate, 1)} activites)`
-                              }
-                            </p>
-                          </div>
+                  <div className='space-y-3'>
+                    {activeHeartRateZonesView.rows.map((zone) => (
+                      <div
+                        className='rounded-xl border border-black/10 bg-black/[0.02] p-3'
+                        key={zone.zone}
+                      >
+                        <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+                          <p className='text-sm font-semibold'>
+                            {zone.zone} · {zone.label}
+                          </p>
+                          <p className='text-xs text-muted'>
+                            {zone.rangeLabel}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  }
+                        <div>
+                          <p className='mb-1 text-[11px] uppercase tracking-wide text-muted'>
+                            {activeHeartRateZonesView.basisLabel} (
+                            {number(activeHeartRateZonesView.sampleSize, 0)}{' '}
+                            activites)
+                          </p>
+                          <div className='h-2 rounded-full bg-black/10'>
+                            <div
+                              className={`h-2 rounded-full ${zone.colorClass}`}
+                              style={{
+                                width: `${zone.pct === null ? 0 : clamp(zone.pct, 0, 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <p className='mt-1 text-xs text-muted'>
+                            {zone.pct === null ?
+                              'n/a'
+                            : `${number(zone.pct, 1)}% (~${number(zone.countEstimate, 1)} activites)`
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </>
               }
             </Card>
           : null}
 
-          {showLabSection('labHeatmap') ?
+          {showLabSection('labHeatmap') && hasHeatmapData ?
             <Card>
               <SectionHeader
                 title='Heatmap calendrier distance/jour'
@@ -5695,7 +5781,7 @@ export function AnalyticsPage() {
             <Card>
               <SectionHeader
                 title='Profil athlete & indicateurs derives'
-                subtitle='Base: donnees profil (Settings) + activites filtrees de la periode.'
+                subtitle='Base: donnees profil (Parametres) + activites filtrees de la periode.'
                 infoHint={{
                   title: 'Calculs derives',
                   description:
@@ -5769,7 +5855,7 @@ export function AnalyticsPage() {
             </Card>
           : null}
 
-          {showLabSection('labTrends') ?
+          {showLabSection('labTrends') && hasTrendData ?
             <Card>
               <SectionHeader
                 title='Tendances par metrique'
@@ -5785,7 +5871,13 @@ export function AnalyticsPage() {
               {collapsedSections.labTrends ?
                 <p className='text-xs text-muted'>Section repliee.</p>
               : <div className='grid gap-6 lg:grid-cols-2'>
-                  {trendMetrics.map((metricDef) => {
+                  {trendMetrics
+                    .filter(
+                      (metricDef) =>
+                        (trendByMetric[metricDef.metric]?.series.length ?? 0) >
+                        0,
+                    )
+                    .map((metricDef) => {
                     const series =
                       trendByMetric[metricDef.metric]?.series ?? [];
                     const convertedSeries = series.map((point) => ({
@@ -6145,13 +6237,13 @@ export function AnalyticsPage() {
                         />
                       </div>
                     );
-                  })}
+                    })}
                 </div>
               }
             </Card>
           : null}
 
-          {showLabSection('labDistributions') ?
+          {showLabSection('labDistributions') && hasDistributionData ?
             <Card>
               <SectionHeader
                 title='Distributions'
@@ -6167,7 +6259,16 @@ export function AnalyticsPage() {
               {collapsedSections.labDistributions ?
                 <p className='text-xs text-muted'>Section repliee.</p>
               : <div className='grid gap-6 lg:grid-cols-2'>
-                  {distributionMetrics.map((metricDef) => {
+                  {distributionMetrics
+                    .filter((metricDef) => {
+                      const metricDistribution =
+                        distributionByMetric[metricDef.metric];
+                      return (
+                        (metricDistribution?.sampleSize ?? 0) > 0 &&
+                        (metricDistribution?.bins.length ?? 0) > 0
+                      );
+                    })
+                    .map((metricDef) => {
                     const bins =
                       distributionByMetric[metricDef.metric]?.bins ?? [];
                     const convertedBins = convertDistributionBinsForMetric(
@@ -6433,13 +6534,13 @@ export function AnalyticsPage() {
                         />
                       </div>
                     );
-                  })}
+                    })}
                 </div>
               }
             </Card>
           : null}
 
-          {showLabSection('labPivot') ?
+          {showLabSection('labPivot') && hasPivotData ?
             <Card>
               <SectionHeader
                 title='Tableau pivot'
@@ -6541,7 +6642,7 @@ export function AnalyticsPage() {
             </Card>
           : null}
 
-          {showLabSection('labLoad') ?
+          {showLabSection('labLoad') && hasLoadSeries ?
             <Card>
               <SectionHeader
                 title='Forme / charge'
@@ -6724,18 +6825,10 @@ export function AnalyticsPage() {
             </Card>
           : null}
 
-          {!historicalLoading && !historicalError && !historicalComparison ?
-            <Card>
-              <p className='text-sm text-muted'>
-                Pas assez de donnees pour construire une analyse historique.
-                Elargis la periode ou retire des filtres.
-              </p>
-            </Card>
-          : null}
-
           {!historicalLoading && !historicalError && historicalComparison ?
             <>
-              {showHistoricalSection('histSynthesis') ?
+              {showHistoricalSection('histSynthesis') &&
+              hasHistoricalSynthesisData ?
                 <Card>
                 <SectionHeader
                   title="Synthese d'evolution"
@@ -6811,7 +6904,7 @@ export function AnalyticsPage() {
                 </Card>
               : null}
 
-              {showHistoricalSection('histSkills') ?
+              {showHistoricalSection('histSkills') && hasHistoricalSkillsData ?
                 <Card>
                 <SectionHeader
                   title='Radar des competences'
@@ -6834,36 +6927,34 @@ export function AnalyticsPage() {
                 />
                 {collapsedSections.histSkills ?
                   <p className='text-xs text-muted'>Section repliee.</p>
-                : progressRadar ?
-                  <>
+                : <>
                     <p className='mb-3 text-xs text-muted'>
                       Base: sessions comparables + charge du jour (si
                       disponible).
                     </p>
                     <ReactECharts
-                      option={progressRadar.option}
-                      style={{ height: 360 }}
+                      option={progressRadar!.option}
+                      style={{ height: isMobile ? 380 : 360 }}
                     />
                     <div className='mt-3 grid gap-2 md:grid-cols-3'>
-                      {progressRadar.metrics.map((metric) => (
+                      {progressRadar!.metrics.map((metric) => (
                         <div
                           className='rounded-lg border border-black/10 bg-black/[0.03] px-3 py-2 text-xs'
                           key={metric.name}
                         >
-                          <span className='text-muted'>{metric.name}</span>:{' '}
-                          <strong>{metric.value.toFixed(0)}/100</strong>
+                          <p className='break-words text-muted'>{metric.name}</p>
+                          <p className='mt-1 break-words'>
+                            <strong>{metric.value.toFixed(0)}/100</strong>
+                          </p>
                         </div>
                       ))}
                     </div>
                   </>
-                : <p className='text-xs text-muted'>
-                    Pas assez de donnees pour estimer le radar de competences.
-                  </p>
                 }
                 </Card>
               : null}
 
-              {showHistoricalSection('histSimple') ?
+              {showHistoricalSection('histSimple') && hasHistoricalSimpleData ?
                 <Card>
                 <SectionHeader
                   title='Graphique simple (zoomable)'
@@ -6934,106 +7025,115 @@ export function AnalyticsPage() {
                 </Card>
               : null}
 
-              {(
-                showHistoricalSection('histAdvancedMap') ||
-                showHistoricalSection('histAdvancedEvolution')
-              ) ?
+              {(showHistoricalSection('histAdvancedMap') &&
+                hasHistoricalMapData) ||
+              (showHistoricalSection('histAdvancedEvolution') &&
+                hasHistoricalEvolutionData) ?
                 <Card>
                 <details>
                   <summary className='cursor-pointer text-sm font-semibold'>
                     Vue avancee (optionnelle)
                   </summary>
                   <div className='mt-3 space-y-6'>
-                    <div>
-                      <SectionHeader
-                        title='Carte des sessions proches'
-                        subtitle="Click sur un point pour ouvrir l'activite."
-                        infoHint={{
-                          title: 'Carte de proximite',
-                          description:
-                            'Chaque point est une session; couleur = similarite au profil de reference, taille = duree.',
-                          linkHref:
-                            'https://en.wikipedia.org/wiki/Euclidean_distance',
-                          linkLabel: 'Methode: distance euclidienne',
-                        }}
-                        aiInsight={buildAiInsight(
-                          'histAdvancedMap',
-                          'Carte des sessions proches',
-                          'Projection FC vs vitesse/allure avec similarite',
-                          {
-                            referenceId,
-                            rowsSample: sampleForAi(
-                              (historicalComparison?.rows ?? []).map((row) => ({
-                                id: row.session.id,
-                                date: row.session.day,
-                                similarity: row.similarity,
-                                hr: row.session.hr,
-                                speedKmh: row.session.speedKmh,
-                                durationMin: row.session.durationMin,
-                              })),
-                              42,
-                            ),
-                          },
-                        )}
-                        collapsed={collapsedSections.histAdvancedMap}
-                        onToggleCollapse={() =>
-                          toggleSection('histAdvancedMap')
-                        }
-                      />
-                      {collapsedSections.histAdvancedMap ?
-                        <p className='text-xs text-muted'>Section repliee.</p>
-                      : <ReactECharts
-                          option={historicalSimilarityOption}
-                          style={{ height: 420 }}
-                          onEvents={{
-                            click: (params: {
-                              data?: { activityId?: string };
-                            }) => {
-                              openHistoricalActivity(params.data?.activityId);
-                            },
+                    {showHistoricalSection('histAdvancedMap') &&
+                    hasHistoricalMapData ?
+                      <div>
+                        <SectionHeader
+                          title='Carte des sessions proches'
+                          subtitle="Click sur un point pour ouvrir l'activite."
+                          infoHint={{
+                            title: 'Carte de proximite',
+                            description:
+                              'Chaque point est une session; couleur = similarite au profil de reference, taille = duree.',
+                            linkHref:
+                              'https://en.wikipedia.org/wiki/Euclidean_distance',
+                            linkLabel: 'Methode: distance euclidienne',
                           }}
+                          aiInsight={buildAiInsight(
+                            'histAdvancedMap',
+                            'Carte des sessions proches',
+                            'Projection FC vs vitesse/allure avec similarite',
+                            {
+                              referenceId,
+                              rowsSample: sampleForAi(
+                                (historicalComparison?.rows ?? []).map(
+                                  (row) => ({
+                                    id: row.session.id,
+                                    date: row.session.day,
+                                    similarity: row.similarity,
+                                    hr: row.session.hr,
+                                    speedKmh: row.session.speedKmh,
+                                    durationMin: row.session.durationMin,
+                                  }),
+                                ),
+                                42,
+                              ),
+                            },
+                          )}
+                          collapsed={collapsedSections.histAdvancedMap}
+                          onToggleCollapse={() =>
+                            toggleSection('histAdvancedMap')
+                          }
                         />
-                      }
-                    </div>
-                    <div>
-                      <SectionHeader
-                        title='Evolution comparee (indexee)'
-                        subtitle='Index base 100 pour comparer toutes les dimensions.'
-                        infoHint={{
-                          title: 'Index base 100',
-                          description:
-                            'Chaque metrique est normalisee par sa premiere valeur disponible pour comparer les trajectoires.',
-                          linkHref:
-                            'https://en.wikipedia.org/wiki/Normalization_(statistics)',
-                          linkLabel: 'Principe: normalization',
-                        }}
-                        aiInsight={buildAiInsight(
-                          'histAdvancedEvolution',
-                          'Evolution comparee indexee',
-                          'Comparaison multi-metriques en base 100',
-                          {
-                            historicalMetrics,
-                          },
-                        )}
-                        collapsed={collapsedSections.histAdvancedEvolution}
-                        onToggleCollapse={() =>
-                          toggleSection('histAdvancedEvolution')
+                        {collapsedSections.histAdvancedMap ?
+                          <p className='text-xs text-muted'>Section repliee.</p>
+                        : <ReactECharts
+                            option={historicalSimilarityOption}
+                            style={{ height: 420 }}
+                            onEvents={{
+                              click: (params: {
+                                data?: { activityId?: string };
+                              }) => {
+                                openHistoricalActivity(params.data?.activityId);
+                              },
+                            }}
+                          />
                         }
-                      />
-                      {collapsedSections.histAdvancedEvolution ?
-                        <p className='text-xs text-muted'>Section repliee.</p>
-                      : <ReactECharts
-                          option={historicalEvolutionOption}
-                          style={{ height: 380 }}
+                      </div>
+                    : null}
+                    {showHistoricalSection('histAdvancedEvolution') &&
+                    hasHistoricalEvolutionData ?
+                      <div>
+                        <SectionHeader
+                          title='Evolution comparee (indexee)'
+                          subtitle='Index base 100 pour comparer toutes les dimensions.'
+                          infoHint={{
+                            title: 'Index base 100',
+                            description:
+                              'Chaque metrique est normalisee par sa premiere valeur disponible pour comparer les trajectoires.',
+                            linkHref:
+                              'https://en.wikipedia.org/wiki/Normalization_(statistics)',
+                            linkLabel: 'Principe: normalization',
+                          }}
+                          aiInsight={buildAiInsight(
+                            'histAdvancedEvolution',
+                            'Evolution comparee indexee',
+                            'Comparaison multi-metriques en base 100',
+                            {
+                              historicalMetrics,
+                            },
+                          )}
+                          collapsed={collapsedSections.histAdvancedEvolution}
+                          onToggleCollapse={() =>
+                            toggleSection('histAdvancedEvolution')
+                          }
                         />
-                      }
-                    </div>
+                        {collapsedSections.histAdvancedEvolution ?
+                          <p className='text-xs text-muted'>Section repliee.</p>
+                        : <ReactECharts
+                            option={historicalEvolutionOption}
+                            style={{ height: 380 }}
+                          />
+                        }
+                      </div>
+                    : null}
                   </div>
                 </details>
                 </Card>
               : null}
 
-              {showHistoricalSection('histNarrative') ?
+              {showHistoricalSection('histNarrative') &&
+              hasHistoricalNarrativeData ?
                 <Card>
                 <SectionHeader
                   title='Analyse automatique'
@@ -7071,7 +7171,7 @@ export function AnalyticsPage() {
                 </Card>
               : null}
 
-              {showHistoricalSection('histSessions') ?
+              {showHistoricalSection('histSessions') && hasHistoricalSessionsData ?
                 <Card>
                 <SectionHeader
                   title='Sessions retenues'

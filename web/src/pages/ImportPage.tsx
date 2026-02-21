@@ -21,7 +21,7 @@ const importStepLabels = [
 ];
 
 export function ImportPage() {
-  const { token } = useAuth();
+  const { token, refreshMe, user } = useAuth();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +66,7 @@ export function ImportPage() {
         method: "POST",
         token,
       });
+      await refreshMe();
       setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import impossible");
@@ -77,17 +78,17 @@ export function ImportPage() {
   return (
     <div>
       <PageHeader
-        description="Importe l'historique complet d'activites Strava via pagination 200/page jusqu'a epuisement."
-        title="Import Center"
+        description="Importe l'historique Strava des seances de course a pied uniquement (Run/Trail/Virtual Run), via pagination 200/page."
+        title="Centre d'import"
       />
       <Card>
         <SectionHeader
           title="Import Strava"
-          subtitle="Recupere toutes les activites puis fait un upsert local"
+          subtitle="Recupere les seances de course a pied puis fait un upsert local"
           infoHint={{
             title: "Import",
             description:
-              "L'import lit les pages Strava (200 activites/page) jusqu'a la fin puis met a jour les activites existantes.",
+              "L'import lit les pages Strava (200 activites/page), conserve seulement les seances de course a pied, puis met a jour les activites existantes.",
           }}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((prev) => !prev)}
@@ -97,7 +98,7 @@ export function ImportPage() {
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted">
-              Lance l'import complet pour remplir la base locale avec tes activites Strava.
+              Lance l'import pour remplir la base locale avec tes seances de course a pied.
             </p>
 
             <button
@@ -163,11 +164,16 @@ export function ImportPage() {
                   <p className="font-medium text-ink">Actions API effectuees</p>
                   <p>1. Authentification et verification du token: OK</p>
                   <p>2. Lecture API Strava: {result.pages} page(s) traitee(s)</p>
-                  <p>3. Upsert activites en base locale: {result.imported} element(s)</p>
+                  <p>3. Filtre course a pied + upsert base locale: {result.imported} element(s)</p>
                 </div>
                 <Link className={secondaryButtonClass} to="/activities">
                   Voir mes activites
                 </Link>
+                {user?.hasImportedActivities ? (
+                  <Link className={secondaryButtonClass} to="/analytics">
+                    Ouvrir les analyses
+                  </Link>
+                ) : null}
               </div>
             ) : null}
 

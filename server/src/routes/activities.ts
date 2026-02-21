@@ -2,6 +2,7 @@ import { type Prisma } from "@prisma/client";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
+import { buildRunOnlyActivityWhere } from "../utils/runActivities.js";
 import { withEstimatedCalories, withEstimatedCaloriesList } from "../utils/calories.js";
 import { buildActivityWhere, parseBool, parseDate, parseIdList, parseNumber } from "../utils/filters.js";
 import { collectRunDynamicsBackfills } from "../utils/runDynamics.js";
@@ -172,12 +173,16 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
 
   app.get("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const runOnlyWhere = buildRunOnlyActivityWhere();
 
     const [activity, user] = await Promise.all([
       prisma.activity.findFirst({
         where: {
           userId: request.userId,
-          OR: [{ id: params.id }, { stravaActivityId: params.id }],
+          AND: [
+            runOnlyWhere,
+            { OR: [{ id: params.id }, { stravaActivityId: params.id }] },
+          ],
         },
       }),
       prisma.user.findUnique({

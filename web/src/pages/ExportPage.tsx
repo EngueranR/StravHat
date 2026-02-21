@@ -6,7 +6,6 @@ import { PageHeader } from "../components/PageHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import { inputClass, primaryButtonClass, secondaryButtonClass } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
-import { useMediaQuery } from "../hooks/useMediaQuery";
 import { buildActivityFilterQuery, type ActivityFilterState } from "../utils/activityFilters";
 
 type ExportMetric =
@@ -126,7 +125,6 @@ function getFilenameFromResponse(response: Response, fallback: string) {
 
 export function ExportPage() {
   const { token } = useAuth();
-  const isMobile = useMediaQuery("(max-width: 1023px)");
   const [filters, setFilters] = useState<ActivityFilterState>({
     from: "",
     to: "",
@@ -150,7 +148,7 @@ export function ExportPage() {
     maxKilojoules: "",
   });
   const [status, setStatus] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(isMobile);
+  const [collapsed, setCollapsed] = useState(true);
   const [activePreset, setActivePreset] = useState<ExportPreset>("all");
   const [isExporting, setIsExporting] = useState(false);
 
@@ -239,7 +237,7 @@ export function ExportPage() {
           }
         />
         {collapsed ? (
-          <p className="text-xs text-muted">Section repliee.</p>
+          <p className="text-[11px] text-muted/80">Filtres masques.</p>
         ) : (
           <>
             <div className="grid gap-3 md:grid-cols-2">
@@ -300,8 +298,8 @@ export function ExportPage() {
               </div>
             </div>
 
-            <details className="mt-4 rounded-lg border border-black/10 bg-black/5 p-3">
-              <summary className="cursor-pointer text-xs uppercase tracking-wide text-muted">Plus de filtres</summary>
+            <details className="mt-3 rounded-lg border border-black/10 bg-black/[0.03] p-2.5">
+              <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-muted">Plus de filtres</summary>
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 <input
                   className={inputClass}

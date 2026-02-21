@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiRequest } from '../api/client';
 import type { User } from '../api/types';
 import { Card } from '../components/Card';
-import { MobileTabs } from '../components/MobileTabs';
 import { PageHeader } from '../components/PageHeader';
 import { SectionHeader } from '../components/SectionHeader';
 import {
@@ -11,15 +11,27 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
   selectClass,
+  subtlePanelClass,
 } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { AppLanguage } from '../i18n/language';
 import { normalizeLanguage, setAppLanguage } from '../i18n/language';
 
-type SectionKey = 'preferences' | 'dangerZone';
-type SettingsMobileTab = 'preferences' | 'danger';
+type SectionKey = 'preferences' | 'importCenter' | 'dangerZone';
 type GoalType = Exclude<User['goalType'], null>;
+
+interface ImportResult {
+  ok: boolean;
+  imported: number;
+  pages: number;
+}
+
+const importStepLabels = [
+  'Verification de session et du token',
+  "Requete vers l'API Strava (pagination)",
+  'Transformation des activites recuperees',
+  'Upsert en base locale',
+];
 
 const goalDistanceDefaults: Record<Exclude<GoalType, 'custom'>, number> = {
   '5k': 5,
@@ -58,8 +70,6 @@ function parseGoalTimeToSeconds(value: string) {
 
 export function SettingsPage() {
   const { token, user, refreshMe, logout } = useAuth();
-  const isMobile = useMediaQuery('(max-width: 1023px)');
-  const [mobileTab, setMobileTab] = useState<SettingsMobileTab>('preferences');
   const [hrMax, setHrMax] = useState(190);
   const [age, setAge] = useState('');
   const [weightKg, setWeightKg] = useState('');
@@ -79,21 +89,40 @@ export function SettingsPage() {
     Record<SectionKey, boolean>
   >({
     preferences: false,
+    importCenter: false,
     dangerZone: false,
   });
+  const [importRunning, setImportRunning] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importActiveStepIndex, setImportActiveStepIndex] = useState(0);
+  const [importElapsedSeconds, setImportElapsedSeconds] = useState(0);
   const paypalRavitoUrl = (import.meta.env.VITE_PAYPAL_RAVITO_URL ?? '').trim();
+  const isAdminUnlimited = !!user?.isAdmin;
   const planTier = user?.subscription?.tier ?? user?.subscriptionTier ?? 'FREE';
   const planName =
-    user?.subscription?.name ??
+    isAdminUnlimited ? 'Administration'
+    : user?.subscription?.name ??
     (planTier === 'SUPPORTER' ? 'Ravito' : 'Gratuit');
-  const planLimits = user?.subscription?.limits ?? {
-    stravaImportsPerDay: planTier === 'SUPPORTER' ? 5 : 1,
-    aiRequestsPerDay: planTier === 'SUPPORTER' ? 20 : 5,
-    trainingPlansPerWindow: 1,
-    trainingPlanWindow: (planTier === 'SUPPORTER' ? 'day' : 'week') as
-      | 'day'
-      | 'week',
-  };
+  const planLimits =
+    isAdminUnlimited ?
+      {
+        stravaImportsPerDay: Number.MAX_SAFE_INTEGER,
+        aiRequestsPerDay: Number.MAX_SAFE_INTEGER,
+        trainingPlansPerWindow: Number.MAX_SAFE_INTEGER,
+        trainingPlanWindow: 'day' as 'day',
+      }
+    : (user?.subscription?.limits ?? {
+        stravaImportsPerDay: planTier === 'SUPPORTER' ? 5 : 1,
+        aiRequestsPerDay: planTier === 'SUPPORTER' ? 20 : 5,
+        trainingPlansPerWindow: 1,
+        trainingPlanWindow: (planTier === 'SUPPORTER' ? 'day' : 'week') as
+          | 'day'
+          | 'week',
+      });
+
+  const displayLimit = (value: number) =>
+    isAdminUnlimited || value >= Number.MAX_SAFE_INTEGER / 2 ? 'Illimite' : String(value);
 
   useEffect(() => {
     if (!user) {
@@ -115,6 +144,29 @@ export function SettingsPage() {
     setCadenceUnit(user.cadenceUnit === 'spm' ? 'ppm' : user.cadenceUnit);
     setLanguage(normalizeLanguage(user.language));
   }, [user]);
+
+  useEffect(() => {
+    if (!importRunning) {
+      setImportActiveStepIndex(0);
+      setImportElapsedSeconds(0);
+      return;
+    }
+
+    const stepTimer = window.setInterval(() => {
+      setImportActiveStepIndex((current) =>
+        Math.min(current + 1, importStepLabels.length - 1),
+      );
+    }, 3200);
+
+    const elapsedTimer = window.setInterval(() => {
+      setImportElapsedSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(stepTimer);
+      window.clearInterval(elapsedTimer);
+    };
+  }, [importRunning]);
 
   const save = async () => {
     if (!token) {
@@ -217,25 +269,37 @@ export function SettingsPage() {
     }
   };
 
+  const launchImport = async () => {
+    if (!token) {
+      return;
+    }
+
+    setImportRunning(true);
+    setImportError(null);
+    setImportResult(null);
+
+    try {
+      const data = await apiRequest<ImportResult>('/import/basic', {
+        method: 'POST',
+        token,
+      });
+      await refreshMe();
+      setImportResult(data);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import impossible');
+    } finally {
+      setImportRunning(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
-        description="HRmax, unites d'affichage, suppression des donnees, logout."
-        title='Settings'
+        description='Profil, unites, import Strava, suppression des donnees et deconnexion.'
+        title='Parametres'
       />
-      {isMobile ?
-        <MobileTabs
-          activeKey={mobileTab}
-          onChange={setMobileTab}
-          tabs={[
-            { key: 'preferences', label: 'Preferences' },
-            { key: 'danger', label: 'Zone critique' },
-          ]}
-        />
-      : null}
       <div className='grid gap-6 lg:grid-cols-2'>
-        {!isMobile || mobileTab === 'preferences' ?
-          <Card>
+        <Card>
             <SectionHeader
               title='Preferences utilisateur'
               subtitle="Profil sport + preferences d'unites d'affichage"
@@ -263,7 +327,9 @@ export function SettingsPage() {
                       </p>
                       <p className='text-lg font-semibold'>{planName}</p>
                       <p className='text-xs text-muted'>
-                        {user?.subscription?.tagline ??
+                        {isAdminUnlimited ?
+                          'Mode administrateur: quotas illimites sur import Strava, requetes IA et plans.'
+                        : user?.subscription?.tagline ??
                           'Le plan est gere en base de donnees par le gestionnaire.'}
                       </p>
                     </div>
@@ -274,7 +340,9 @@ export function SettingsPage() {
                         : 'border border-black/15 bg-white text-ink'
                       }`}
                     >
-                      {planTier === 'SUPPORTER' ?
+                      {isAdminUnlimited ?
+                        'Mode Admin illimite'
+                      : planTier === 'SUPPORTER' ?
                         'Mode Ravito'
                       : 'Mode Gratuit'}
                     </span>
@@ -282,31 +350,33 @@ export function SettingsPage() {
                   <div className='mt-3 grid gap-2 text-xs text-muted sm:grid-cols-3'>
                     <p>
                       Import Strava:{' '}
-                      <strong>{planLimits.stravaImportsPerDay}/jour</strong>
+                      <strong>{displayLimit(planLimits.stravaImportsPerDay)}/jour</strong>
                     </p>
                     <p>
                       Requetes IA:{' '}
-                      <strong>{planLimits.aiRequestsPerDay}/jour</strong>
+                      <strong>{displayLimit(planLimits.aiRequestsPerDay)}/jour</strong>
                     </p>
                     <p>
                       Plans entrainement:{' '}
                       <strong>
-                        {planLimits.trainingPlansPerWindow}/
+                        {displayLimit(planLimits.trainingPlansPerWindow)}/
                         {planLimits.trainingPlanWindow === 'day' ?
                           'jour'
                         : 'semaine'}
                       </strong>
                     </p>
                   </div>
-                  <div className='mt-3 flex flex-wrap gap-2'>
-                    <button
-                      className={secondaryButtonClass}
-                      onClick={() => setShowRavitoModal(true)}
-                      type='button'
-                    >
-                      Offrir un ravitaillement (merci !)
-                    </button>
-                  </div>
+                  {!isAdminUnlimited ? (
+                    <div className='mt-3 flex flex-wrap gap-2'>
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() => setShowRavitoModal(true)}
+                        type='button'
+                      >
+                        Offrir un ravitaillement (merci !)
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
                 <div className='grid gap-3 sm:grid-cols-2'>
                   <label className='grid gap-1 text-xs text-muted'>
@@ -523,10 +593,125 @@ export function SettingsPage() {
               </>
             }
           </Card>
-        : null}
 
-        {!isMobile || mobileTab === 'danger' ?
-          <Card>
+        <Card>
+          <SectionHeader
+            title='Import Strava'
+            subtitle='Recupere les seances de course a pied puis met a jour la base locale'
+            infoHint={{
+              title: 'Import',
+              description:
+                "L'import lit les pages Strava (200 activites/page), garde seulement la course a pied, puis met a jour les activites existantes.",
+            }}
+            collapsed={collapsedSections.importCenter}
+            onToggleCollapse={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                importCenter: !prev.importCenter,
+              }))
+            }
+          />
+          {collapsedSections.importCenter ?
+            <p className='text-xs text-muted'>Section repliee.</p>
+          : <div className='space-y-4'>
+              <p className='text-sm text-muted'>
+                Lance l&apos;import pour synchroniser tes seances de course a
+                pied depuis Strava.
+              </p>
+
+              <button
+                className={primaryButtonClass}
+                disabled={importRunning}
+                onClick={() => {
+                  void launchImport();
+                }}
+                type='button'
+              >
+                {importRunning ? 'Import en cours...' : 'Lancer import'}
+              </button>
+
+              {importRunning ?
+                <div className={`${subtlePanelClass} space-y-3`}>
+                  <div className='flex items-center gap-2 text-sm'>
+                    <span className='inline-flex h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-ink' />
+                    <span>Import en cours ({importElapsedSeconds}s)</span>
+                  </div>
+                  <ul className='space-y-1 text-xs'>
+                    {importStepLabels.map((label, index) => {
+                      const done = index < importActiveStepIndex;
+                      const active = index === importActiveStepIndex;
+                      return (
+                        <li className='flex items-center gap-2' key={label}>
+                          <span
+                            className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] ${
+                              done ?
+                                'border-emerald-700 bg-emerald-700 text-white'
+                              : active ?
+                                'border-ink bg-ink text-white'
+                              : 'border-black/20 bg-white text-muted'
+                            }`}
+                          >
+                            {done ? '✓' : index + 1}
+                          </span>
+                          <span
+                            className={
+                              active ?
+                                'text-ink'
+                              : done ?
+                                'text-emerald-700'
+                              : 'text-muted'
+                            }
+                          >
+                            {label}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              : null}
+
+              {!importResult && !importError && !importRunning ?
+                <p className='text-xs text-muted'>
+                  Aucun import lance pour le moment.
+                </p>
+              : null}
+
+              {importResult ?
+                <div className={`${subtlePanelClass} space-y-2 text-sm`}>
+                  <p>Pages importees: {importResult.pages}</p>
+                  <p>Activites mises a jour: {importResult.imported}</p>
+                  <div className='rounded-lg border border-black/10 bg-white/70 p-2 text-xs text-muted'>
+                    <p className='font-medium text-ink'>Actions API effectuees</p>
+                    <p>1. Authentification et verification du token: OK</p>
+                    <p>
+                      2. Lecture API Strava: {importResult.pages} page(s)
+                      traitee(s)
+                    </p>
+                    <p>
+                      3. Filtre course a pied + upsert base locale:{' '}
+                      {importResult.imported} element(s)
+                    </p>
+                  </div>
+                  <div className='flex flex-wrap gap-2'>
+                    <Link className={secondaryButtonClass} to='/activities'>
+                      Voir mes activites
+                    </Link>
+                    {user?.hasImportedActivities ?
+                      <Link className={secondaryButtonClass} to='/analytics'>
+                        Ouvrir les analyses
+                      </Link>
+                    : null}
+                  </div>
+                </div>
+              : null}
+
+              {importError ? <p className='text-sm text-red-700'>{importError}</p> : null}
+            </div>
+          }
+        </Card>
+
+        <Card>
             <SectionHeader
               title='Zone critique'
               subtitle='Actions irreversibles sur le compte'
@@ -554,7 +739,6 @@ export function SettingsPage() {
               </button>
             }
           </Card>
-        : null}
       </div>
       {status ?
         <p className='mt-4 text-sm text-muted'>{status}</p>

@@ -18,12 +18,28 @@ export function LandingPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const passwordPolicyChecks = [
+    { label: 'Au moins 12 caracteres', ok: password.length >= 12 },
+    { label: 'Au moins 1 lettre majuscule (A-Z)', ok: /[A-Z]/.test(password) },
+    { label: 'Au moins 1 lettre minuscule (a-z)', ok: /[a-z]/.test(password) },
+    { label: 'Au moins 1 chiffre (0-9)', ok: /[0-9]/.test(password) },
+    {
+      label: 'Au moins 1 caractere special (!@#...)',
+      ok: /[^A-Za-z0-9]/.test(password),
+    },
+  ];
+  const passwordPolicySatisfied = passwordPolicyChecks.every((check) => check.ok);
 
   if (!loading && isAuthenticated) {
     return (
       <Navigate
         replace
-        to={user?.connectedToStrava ? '/analytics' : '/connect-strava'}
+        to={
+          user?.connectedToStrava ?
+            user?.hasImportedActivities ? '/analytics' : '/settings'
+          : user?.isAdmin ? '/admin'
+          : '/connect-strava'
+        }
       />
     );
   }
@@ -82,6 +98,12 @@ export function LandingPage() {
               Connecte-toi a ton compte applicatif, puis configure Strava sur une
               page unique (credentials + OAuth).
             </p>
+            <div className='rounded-xl border border-black/10 bg-black/[0.03] p-3 text-xs text-muted'>
+              <p className='font-semibold text-ink'>Parcours simple</p>
+              <p className='mt-1'>1) Connexion / Inscription</p>
+              <p>2) Page Connexion Strava: credentials puis OAuth</p>
+              <p>3) Parametres: Import des activites puis analyses</p>
+            </div>
           </div>
 
           {loading ? (
@@ -191,11 +213,28 @@ export function LandingPage() {
                       autoComplete='new-password'
                       className={inputClass}
                       id='register-password'
+                      minLength={12}
                       onChange={(event) => setPassword(event.target.value)}
                       required
                       type='password'
                       value={password}
                     />
+                    <div className='rounded-lg border border-black/10 bg-black/[0.02] p-2'>
+                      <p className='text-[11px] font-semibold text-ink'>
+                        Exigences mot de passe:
+                      </p>
+                      <ul className='mt-1 space-y-1 text-[11px] text-muted'>
+                        {passwordPolicyChecks.map((check) => (
+                          <li
+                            key={check.label}
+                            className={check.ok ? 'text-emerald-700' : 'text-muted'}
+                          >
+                            {check.ok ? '✓ ' : '• '}
+                            {check.label}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                   <div className='space-y-1.5'>
                     <label
@@ -216,11 +255,17 @@ export function LandingPage() {
                   </div>
                   <button
                     className={`w-full ${primaryButtonClass}`}
-                    disabled={submitLoading}
+                    disabled={submitLoading || !passwordPolicySatisfied}
                     type='submit'
                   >
                     {submitLoading ? 'Creation...' : 'Creer un compte'}
                   </button>
+                  {!passwordPolicySatisfied ? (
+                    <p className='text-xs text-muted'>
+                      Complete toutes les regles ci-dessus pour activer
+                      l'inscription.
+                    </p>
+                  ) : null}
                 </form>
               )}
             </>

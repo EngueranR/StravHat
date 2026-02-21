@@ -1,3 +1,5 @@
+import { isRunLikeActivityType } from "./runActivities.js";
+
 export interface ActivityForRunDynamics {
   type: string;
   sportType: string;
@@ -30,11 +32,6 @@ function isFinitePositive(value: number | null | undefined): value is number {
   return value !== null && value !== undefined && Number.isFinite(value) && value > 0;
 }
 
-function isRunLikeActivity(activity: Pick<ActivityForRunDynamics, "sportType" | "type">) {
-  const combinedType = `${activity.sportType || ""} ${activity.type || ""}`.toLowerCase();
-  return combinedType.includes("run") || combinedType.includes("trail") || combinedType.includes("jog");
-}
-
 function cadenceToStepsPerMinute(cadence: number) {
   if (!Number.isFinite(cadence) || cadence <= 0) {
     return null;
@@ -45,7 +42,7 @@ function cadenceToStepsPerMinute(cadence: number) {
 }
 
 export function estimateRunDynamics(activity: ActivityForRunDynamics): RunDynamicsValues | null {
-  if (!isRunLikeActivity(activity)) {
+  if (!isRunLikeActivityType(activity)) {
     return null;
   }
 

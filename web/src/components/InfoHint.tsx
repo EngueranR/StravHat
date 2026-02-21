@@ -1,3 +1,5 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
 interface InfoHintProps {
   title: string;
   description: string;
@@ -122,6 +124,15 @@ const DEFAULT_SOURCE: SourceHint = {
   linkLabel: "Source: WHO 2020",
 };
 
+const PANEL_GAP = 8;
+const PANEL_MARGIN = 8;
+const PANEL_MAX_WIDTH = 384;
+const MIN_PREFERRED_HEIGHT = 220;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function normalize(value: string) {
   return value.toLowerCase();
 }
@@ -201,6 +212,16 @@ export const roundIconButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/25 bg-panel text-[11px] font-semibold leading-none text-ink transition hover:bg-black/5";
 
 export function InfoHint({ title, description, linkHref, linkLabel }: InfoHintProps) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{
+    left: number;
+    width: number;
+    top?: number;
+    bottom?: number;
+    maxHeight: number;
+  } | null>(null);
   const detected = pickSourceHint(title, description);
   const source = detected ?? DEFAULT_SOURCE;
   const resolvedLinkHref = linkHref ?? source.linkHref;
@@ -210,35 +231,150 @@ export function InfoHint({ title, description, linkHref, linkLabel }: InfoHintPr
     ? description
     : `${description} ${source.description}`;
 
+  const updatePosition = () => {
+    const trigger = triggerRef.current;
+
+    if (!trigger) {
+      return;
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(PANEL_MAX_WIDTH, window.innerWidth - PANEL_MARGIN * 2);
+    const left = clamp(
+      rect.right - width,
+      PANEL_MARGIN,
+      Math.max(PANEL_MARGIN, window.innerWidth - width - PANEL_MARGIN),
+    );
+    const spaceBelow = window.innerHeight - rect.bottom - PANEL_GAP - PANEL_MARGIN;
+    const spaceAbove = rect.top - PANEL_GAP - PANEL_MARGIN;
+
+    const shouldOpenAbove =
+      spaceBelow < MIN_PREFERRED_HEIGHT && spaceAbove > spaceBelow;
+
+    if (shouldOpenAbove) {
+      const bottom = window.innerHeight - rect.top + PANEL_GAP;
+      const maxHeight = Math.max(0, window.innerHeight - bottom - PANEL_MARGIN);
+
+      if (maxHeight >= 120) {
+        setPosition({ left, width, bottom, maxHeight });
+        return;
+      }
+    }
+
+    const top = rect.bottom + PANEL_GAP;
+    const maxHeight = Math.max(0, window.innerHeight - top - PANEL_MARGIN);
+
+    if (maxHeight >= 120) {
+      setPosition({ left, width, top, maxHeight });
+      return;
+    }
+
+    setPosition({
+      left: PANEL_MARGIN,
+      width: Math.max(160, window.innerWidth - PANEL_MARGIN * 2),
+      top: PANEL_MARGIN,
+      maxHeight: Math.max(80, window.innerHeight - PANEL_MARGIN * 2),
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    updatePosition();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+
+      if (!target) {
+        return;
+      }
+
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) {
+        return;
+      }
+
+      setOpen(false);
+    };
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    const reposition = () => {
+      updatePosition();
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("touchstart", closeOnOutsideClick);
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("touchstart", closeOnOutsideClick);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
   return (
-    <details className="group relative">
-      <summary className="list-none [&::-webkit-details-marker]:hidden">
-        <span className={`${roundIconButtonClass} cursor-pointer`}>
-          i
-        </span>
-      </summary>
-      <div className="absolute right-0 z-20 mt-2 w-[min(24rem,calc(100vw-1.5rem))] rounded-lg border border-black/20 bg-panel p-3 text-xs leading-relaxed text-ink shadow-panel">
-        <p className="font-semibold">{title}</p>
-        <p className="mt-1 text-muted">{enrichedDescription}</p>
-        {calculationNotes.length > 0 ? (
-          <>
-            <p className="mt-2 font-semibold">Calcul utilise</p>
-            <ul className="mt-1 list-disc space-y-1 pl-4 text-muted">
-              {calculationNotes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </>
-        ) : null}
-        <a
-          className="mt-2 inline-block text-[11px] font-semibold text-accent underline-offset-2 hover:underline"
-          href={resolvedLinkHref}
-          rel="noreferrer"
-          target="_blank"
+    <span className="relative inline-flex">
+      <button
+        aria-expanded={open}
+        aria-label={`Informations: ${title}`}
+        className={`${roundIconButtonClass} cursor-pointer`}
+        onClick={() => setOpen((value) => !value)}
+        ref={triggerRef}
+        type="button"
+      >
+        i
+      </button>
+      {open && position ? (
+        <div
+          className="fixed z-[70] overflow-y-auto rounded-lg border border-black/20 bg-panel p-3 text-xs leading-relaxed text-ink shadow-panel"
+          ref={panelRef}
+          style={{
+            left: position.left,
+            width: position.width,
+            ...(typeof position.top === "number" ? { top: position.top } : {}),
+            ...(typeof position.bottom === "number" ? { bottom: position.bottom } : {}),
+            maxHeight: position.maxHeight,
+          }}
         >
-          {resolvedLinkLabel}
-        </a>
-      </div>
-    </details>
+          <p className="font-semibold">{title}</p>
+          <p className="mt-1 text-muted">{enrichedDescription}</p>
+          {calculationNotes.length > 0 ? (
+            <>
+              <p className="mt-2 font-semibold">Calcul utilise</p>
+              <ul className="mt-1 list-disc space-y-1 pl-4 text-muted">
+                {calculationNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          <a
+            className="mt-2 inline-block text-[11px] font-semibold text-accent underline-offset-2 hover:underline"
+            href={resolvedLinkHref}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {resolvedLinkLabel}
+          </a>
+        </div>
+      ) : null}
+    </span>
   );
 }

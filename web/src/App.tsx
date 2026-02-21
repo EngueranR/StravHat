@@ -6,7 +6,6 @@ import { ActivityDetailPage } from "./pages/ActivityDetailPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { ExportPage } from "./pages/ExportPage";
-import { ImportPage } from "./pages/ImportPage";
 import { LandingPage } from "./pages/LandingPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -32,21 +31,23 @@ export function App() {
 
             <Route element={<StravaLinkedRoutes />}>
               <Route element={<SettingsPage />} path="/settings" />
-              <Route element={<ImportPage />} path="/import" />
+              <Route element={<Navigate replace to="/settings" />} path="/import" />
               <Route element={<ActivitiesPage />} path="/activities" />
               <Route element={<ActivityDetailPage />} path="/activities/:id" />
-              <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
-              <Route element={<AnalyticsPage />} path="/analytics" />
-              <Route element={<TrainingPlanPage />} path="/training-plan" />
-              <Route element={<Navigate replace to="/analytics" />} path="/correlations" />
-              <Route element={<ExportPage />} path="/export" />
+              <Route element={<ImportedDataRoutes />}>
+                <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
+                <Route element={<AnalyticsPage />} path="/analytics" />
+                <Route element={<TrainingPlanPage />} path="/training-plan" />
+                <Route element={<Navigate replace to="/analytics" />} path="/correlations" />
+                <Route element={<ExportPage />} path="/export" />
+              </Route>
             </Route>
           </Route>
         </Route>
 
         <Route element={<RootRedirect />} path="*" />
       </Routes>
-      <p className="pointer-events-none fixed bottom-2 right-3 z-50 text-[11px] text-black/55">
+      <p className="pointer-events-none fixed bottom-2 right-3 z-50 hidden text-[11px] text-black/55 lg:block">
         © EngueranR
       </p>
     </>
@@ -65,7 +66,7 @@ function RootRedirect() {
   }
 
   if (user?.connectedToStrava) {
-    return <Navigate replace to="/analytics" />;
+    return <Navigate replace to={user?.hasImportedActivities ? "/analytics" : "/settings"} />;
   }
 
   if (user?.isAdmin) {
@@ -97,7 +98,7 @@ function StravaUnlinkedRoutes() {
   }
 
   if (user?.connectedToStrava) {
-    return <Navigate replace to="/analytics" />;
+    return <Navigate replace to={user?.hasImportedActivities ? "/analytics" : "/settings"} />;
   }
 
   return <Outlet />;
@@ -117,6 +118,20 @@ function StravaLinkedRoutes() {
   return <Outlet />;
 }
 
+function ImportedDataRoutes() {
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+  }
+
+  if (!user?.hasImportedActivities) {
+    return <Navigate replace to="/settings" />;
+  }
+
+  return <Outlet />;
+}
+
 function AdminOnlyRoutes() {
   const { loading, user } = useAuth();
 
@@ -125,7 +140,16 @@ function AdminOnlyRoutes() {
   }
 
   if (!user?.isAdmin) {
-    return <Navigate replace to={user?.connectedToStrava ? "/analytics" : "/connect-strava"} />;
+    return (
+      <Navigate
+        replace
+        to={
+          user?.connectedToStrava ?
+            user?.hasImportedActivities ? "/analytics" : "/settings"
+          : "/connect-strava"
+        }
+      />
+    );
   }
 
   return <Outlet />;
