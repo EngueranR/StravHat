@@ -18,16 +18,35 @@ type LinkDef = {
   icon: NavIconName;
 };
 
-const setupLinkDefs: LinkDef[] = [
-  { to: '/settings', labelKey: 'nav.settings', icon: 'settings' },
-  { to: '/activities', labelKey: 'nav.activities', icon: 'activities' },
-];
+const activitiesLinkDef: LinkDef = {
+  to: '/activities',
+  labelKey: 'nav.activities',
+  icon: 'activities',
+};
 
-const analysisLinkDefs: LinkDef[] = [
-  { to: '/analytics', labelKey: 'nav.analytics', icon: 'analytics' },
-  { to: '/training-plan', labelKey: 'nav.trainingPlan', icon: 'training' },
-  { to: '/export', labelKey: 'nav.exportCsv', icon: 'export' },
-];
+const analyticsLinkDef: LinkDef = {
+  to: '/analytics',
+  labelKey: 'nav.analytics',
+  icon: 'analytics',
+};
+
+const trainingLinkDef: LinkDef = {
+  to: '/training-plan',
+  labelKey: 'nav.trainingPlan',
+  icon: 'training',
+};
+
+const exportLinkDef: LinkDef = {
+  to: '/export',
+  labelKey: 'nav.exportCsv',
+  icon: 'export',
+};
+
+const settingsLinkDef: LinkDef = {
+  to: '/settings',
+  labelKey: 'nav.settings',
+  icon: 'settings',
+};
 
 function isActivePath(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`);
@@ -148,12 +167,18 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const isStravaConnected = !!user?.connectedToStrava;
   const hasImportedActivities = !!user?.hasImportedActivities;
+  const hasCustomStravaCredentials = !!user?.hasCustomStravaCredentials;
 
   const fullLinks = useMemo(() => {
-    const links = [
-      ...setupLinkDefs,
-      ...(hasImportedActivities ? analysisLinkDefs : []),
-    ].map((link) => ({
+    const orderedLinks: LinkDef[] = [
+      activitiesLinkDef,
+      ...(hasImportedActivities ?
+        [analyticsLinkDef, trainingLinkDef, exportLinkDef]
+      : []),
+      settingsLinkDef,
+    ];
+
+    const links = orderedLinks.map((link) => ({
       to: link.to,
       label: t(link.labelKey),
       icon: link.icon,
@@ -167,6 +192,11 @@ export function AppLayout() {
   }, [hasImportedActivities, t, user?.isAdmin]);
 
   if (!isStravaConnected) {
+    const setupOnlyLinks = [
+      { to: '/connect-strava', label: 'Credentials Strava' },
+      { to: '/settings', label: t('nav.settings') },
+    ];
+
     return (
       <div className='min-h-screen overflow-x-hidden bg-grain bg-[size:14px_14px]'>
         <div className='mx-auto max-w-[980px] px-3 py-4 sm:px-4 sm:py-6 lg:px-8'>
@@ -174,7 +204,9 @@ export function AppLayout() {
             <div>
               <p className='text-lg font-semibold'>StravHat</p>
               <p className='mt-1 text-xs text-muted'>
-                {t('layout.stravaSetupRequired')}
+                {hasCustomStravaCredentials ?
+                  'Credentials enregistres. Termine la connexion OAuth Strava.'
+                : t('layout.stravaSetupRequired')}
               </p>
             </div>
             <button
@@ -185,16 +217,24 @@ export function AppLayout() {
               {t('common.logout')}
             </button>
           </header>
-          {user?.isAdmin ? (
-            <div className='mb-4'>
-              <Link
-                className='inline-flex h-9 items-center justify-center rounded-lg border border-black/20 px-3 text-xs hover:bg-black/5'
-                to='/admin'
-              >
-                {t('nav.admin')}
-              </Link>
-            </div>
-          ) : null}
+          <div className='mb-4 flex flex-wrap gap-2'>
+            {setupOnlyLinks.map((link) => {
+              const active = isActivePath(location.pathname, link.to);
+              return (
+                <Link
+                  key={link.to}
+                  className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-xs ${
+                    active ?
+                      'border-ink bg-ink text-white'
+                    : 'border-black/20 hover:bg-black/5'
+                  }`}
+                  to={link.to}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
           <main className='min-w-0 space-y-6 overflow-x-hidden'>
             <Outlet />
           </main>

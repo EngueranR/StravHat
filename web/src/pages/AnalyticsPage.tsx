@@ -2976,9 +2976,9 @@ export function AnalyticsPage() {
       const exponent =
         distanceRatio > 1 ?
           run.distanceKm >= targetDistanceKm * 0.8 ?
-            1.055
-          : 1.065
-        : 1.035;
+            1.04
+          : 1.05
+        : 1.02;
       let predictedSec = run.movingTimeSec * distanceRatio ** exponent;
       if (
         targetDistanceKm <= 10 &&
@@ -2987,7 +2987,7 @@ export function AnalyticsPage() {
         run.distanceKm >= targetDistanceKm * 1.2
       ) {
         const speedReserve = clamp(run.maxSpeedKmh / run.speedKmh - 1, 0, 0.45);
-        predictedSec *= 1 - speedReserve * 0.08;
+        predictedSec *= 1 - speedReserve * 0.16;
       }
       return predictedSec;
     };
@@ -3072,28 +3072,40 @@ export function AnalyticsPage() {
         value: row.predictedSec,
         weight: row.weight * (0.7 + row.intensityScore * 0.6),
       }));
+      const anchorQuantile =
+        target.distanceKm <= 10 ? 0.08
+        : target.distanceKm <= 21.0975 ? 0.1
+        : 0.12;
       const anchorSec =
         anchorRows.length >= 1 ?
-          weightedQuantile(anchorWeightedRows, 0.16)
+          weightedQuantile(anchorWeightedRows, anchorQuantile)
         : null;
+      const bestNearQuantile =
+        target.distanceKm <= 10 ? 0.015
+        : target.distanceKm <= 21.0975 ? 0.02
+        : 0.03;
       const bestRecentNearSec =
         recentNearRows.length > 0 ?
           weightedQuantile(
             recentNearRows.map((row) => ({
               value: row.predictedSec,
-              weight: row.weight * (0.72 + row.intensityScore * 0.85),
+              weight: row.weight * (0.85 + row.intensityScore * 1.05),
             })),
-            0.04,
+            bestNearQuantile,
           )
         : null;
+      const bestEquivalentQuantile =
+        target.distanceKm <= 10 ? 0.01
+        : target.distanceKm <= 21.0975 ? 0.015
+        : 0.02;
       const bestEquivalentSec =
         equivalentRecentRows.length > 0 ?
           weightedQuantile(
             equivalentRecentRows.map((row) => ({
               value: row.predictedSec,
-              weight: row.weight * (0.8 + row.intensityScore * 0.7),
+              weight: row.weight * (0.92 + row.intensityScore * 0.9),
             })),
-            0.03,
+            bestEquivalentQuantile,
           )
         : null;
       const bestEquivalentHardCapSec =
@@ -3132,17 +3144,17 @@ export function AnalyticsPage() {
               hrRatio === null ? 0.45 : clamp((0.9 - hrRatio) / 0.25, 0, 1);
             const recencyScore = Math.exp(-bestEquivalentRun.ageDays / 120);
             const baseBoostPct =
-              target.distanceKm <= 10 ? 0.018
-              : target.distanceKm <= 21.0975 ? 0.014
-              : 0.01;
-            const reserveBoostPct = reserveScore * recencyScore * 0.03;
-            const freshnessBoostPct = recencyScore * 0.012;
+              target.distanceKm <= 10 ? 0.045
+              : target.distanceKm <= 21.0975 ? 0.038
+              : 0.03;
+            const reserveBoostPct = reserveScore * recencyScore * 0.07;
+            const freshnessBoostPct = recencyScore * 0.022;
             const rawBoostPct =
               baseBoostPct + reserveBoostPct + freshnessBoostPct;
             const maxBoostPct =
-              target.distanceKm <= 10 ? 0.055
-              : target.distanceKm <= 21.0975 ? 0.043
-              : 0.03;
+              target.distanceKm <= 10 ? 0.12
+              : target.distanceKm <= 21.0975 ? 0.1
+              : 0.08;
             const boostPct = clamp(rawBoostPct, baseBoostPct, maxBoostPct);
             return bestEquivalentRun.predictedSec * (1 - boostPct);
           })();
@@ -3166,9 +3178,9 @@ export function AnalyticsPage() {
                 : row.isNearDistance ? 1.24
                 : 1),
             })),
-            target.distanceKm <= 10 ? 0.11
-            : target.distanceKm <= 21.0975 ? 0.15
-            : 0.22,
+            target.distanceKm <= 10 ? 0.08
+            : target.distanceKm <= 21.0975 ? 0.1
+            : 0.14,
           )
         : null;
       const totalWeight = projections.reduce((sum, row) => sum + row.weight, 0);
@@ -3178,9 +3190,9 @@ export function AnalyticsPage() {
       const anchorStrength =
         anchorSec === null ? 0
         : equivalentRecentRows.length > 0 ?
-          clamp(0.78 + equivalentRecentRows.length * 0.05, 0.78, 0.94)
-        : clamp(0.5 + recentNearRows.length * 0.05, 0.5, 0.72) *
-          anchorCoverage;
+          clamp(0.86 + equivalentRecentRows.length * 0.045, 0.86, 0.98)
+        : clamp(0.62 + recentNearRows.length * 0.05, 0.62, 0.82) *
+          clamp(anchorCoverage * 1.1, 0, 1);
       let estimatedSec: number | null =
         baseMedianSec === null && anchorSec !== null ? anchorSec
         : baseMedianSec !== null && anchorSec !== null ?
@@ -3194,23 +3206,23 @@ export function AnalyticsPage() {
         equivalentRecentRows.length > 0
       ) {
         const bestEquivalentBlend =
-          equivalentRecentRows.length >= 2 ? 0.74 : 0.6;
+          equivalentRecentRows.length >= 2 ? 0.88 : 0.78;
         estimatedSec =
           estimatedSec * (1 - bestEquivalentBlend) +
           bestEquivalentSec * bestEquivalentBlend;
       }
       if (estimatedSec !== null && raceDayEquivalentSec !== null) {
         const raceDayBlend =
-          equivalentRecentRuns.length >= 2 ? 0.72 : 0.58;
+          equivalentRecentRuns.length >= 2 ? 0.84 : 0.72;
         estimatedSec =
           estimatedSec * (1 - raceDayBlend) +
           raceDayEquivalentSec * raceDayBlend;
       }
       if (estimatedSec !== null && competitiveAnchorSec !== null) {
         const competitiveBlend =
-          target.distanceKm <= 10 ? 0.5
-          : target.distanceKm <= 21.0975 ? 0.4
-          : 0.28;
+          target.distanceKm <= 10 ? 0.64
+          : target.distanceKm <= 21.0975 ? 0.52
+          : 0.38;
         estimatedSec =
           estimatedSec * (1 - competitiveBlend) +
           competitiveAnchorSec * competitiveBlend;
@@ -3218,9 +3230,9 @@ export function AnalyticsPage() {
 
       if (estimatedSec !== null && bestEquivalentHardCapSec !== null) {
         const optimismPct =
-          target.distanceKm <= 10 ? 0.025
-          : target.distanceKm <= 21.0975 ? 0.02
-          : 0.012;
+          target.distanceKm <= 10 ? 0.08
+          : target.distanceKm <= 21.0975 ? 0.065
+          : 0.045;
         const optimisticCapSec = bestEquivalentHardCapSec * (1 - optimismPct);
         estimatedSec = Math.min(estimatedSec, optimisticCapSec);
       } else if (
@@ -3228,7 +3240,7 @@ export function AnalyticsPage() {
         bestRecentNearSec !== null &&
         target.distanceKm <= 10
       ) {
-        estimatedSec = Math.min(estimatedSec, bestRecentNearSec * 0.985);
+        estimatedSec = Math.min(estimatedSec, bestRecentNearSec * 0.94);
       }
 
       if (
@@ -3236,27 +3248,27 @@ export function AnalyticsPage() {
         anchorSec !== null &&
         equivalentRecentRows.length > 0
       ) {
-        estimatedSec = clamp(estimatedSec, anchorSec * 0.93, anchorSec * 1.1);
+        estimatedSec = clamp(estimatedSec, anchorSec * 0.84, anchorSec * 1.06);
       }
       if (estimatedSec !== null && bestEquivalentSec !== null) {
         const bestEquivalentUpperBound =
-          target.distanceKm <= 10 ? 1.02
-          : target.distanceKm <= 21.0975 ? 1.04
-          : 1.07;
+          target.distanceKm <= 10 ? 1
+          : target.distanceKm <= 21.0975 ? 1.02
+          : 1.04;
         estimatedSec = clamp(
           estimatedSec,
-          bestEquivalentSec * 0.93,
+          bestEquivalentSec * 0.84,
           bestEquivalentSec * bestEquivalentUpperBound,
         );
       }
       if (estimatedSec !== null && raceDayEquivalentSec !== null) {
         const raceDayUpperBound =
-          target.distanceKm <= 10 ? 1.02
-          : target.distanceKm <= 21.0975 ? 1.03
-          : 1.04;
+          target.distanceKm <= 10 ? 1
+          : target.distanceKm <= 21.0975 ? 1.01
+          : 1.02;
         estimatedSec = clamp(
           estimatedSec,
-          raceDayEquivalentSec * 0.94,
+          raceDayEquivalentSec * 0.88,
           raceDayEquivalentSec * raceDayUpperBound,
         );
       }
@@ -3275,9 +3287,9 @@ export function AnalyticsPage() {
             }
             const semiPaceMinPerKm = semiTime / 60 / 21.0975;
             const penaltySec = clamp(
-              780 + (semiPaceMinPerKm - 5.0) * 300,
-              600,
-              1500,
+              540 + (semiPaceMinPerKm - 5.0) * 240,
+              360,
+              1080,
             );
             const marathonSec = semiTime * 2 + penaltySec;
             const weight =
@@ -3316,7 +3328,7 @@ export function AnalyticsPage() {
           .map((run) => {
             const ageDays = Math.max(0, daysBetween(run.day, todayDay));
             const ratio = 42.195 / run.distanceKm;
-            const marathonSec = run.movingTimeSec * ratio ** 1.06;
+            const marathonSec = run.movingTimeSec * ratio ** 1.045;
             const intensity =
               run.hrRatio === null ?
                 0.45

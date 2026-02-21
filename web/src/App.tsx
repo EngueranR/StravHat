@@ -30,9 +30,10 @@ export function App() {
               <Route element={<AdminPage />} path="/admin" />
             </Route>
 
+            <Route element={<SettingsPage />} path="/settings" />
+            <Route element={<Navigate replace to="/settings" />} path="/import" />
+
             <Route element={<StravaLinkedRoutes />}>
-              <Route element={<SettingsPage />} path="/settings" />
-              <Route element={<Navigate replace to="/settings" />} path="/import" />
               <Route element={<ActivitiesPage />} path="/activities" />
               <Route element={<ActivityDetailPage />} path="/activities/:id" />
               <Route element={<ImportedDataRoutes />}>
@@ -69,10 +70,6 @@ function RootRedirect() {
 
   if (user?.connectedToStrava) {
     return <Navigate replace to={user?.hasImportedActivities ? "/analytics" : "/settings"} />;
-  }
-
-  if (user?.isAdmin) {
-    return <Navigate replace to="/admin" />;
   }
 
   return <Navigate replace to="/connect-strava" />;

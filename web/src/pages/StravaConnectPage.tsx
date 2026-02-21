@@ -10,14 +10,12 @@ import { useI18n } from '../i18n/framework';
 interface StravaCredentialStatus {
   hasCustomCredentials: boolean;
   clientId: string | null;
-  redirectUri: string | null;
 }
 
 export function StravaConnectPage() {
   const { t } = useI18n();
   const { token, user, refreshMe } = useAuth();
   const defaultRedirectUri = `${window.location.origin}/auth/callback`;
-  const callbackDomain = window.location.host;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -25,7 +23,6 @@ export function StravaConnectPage() {
   const [status, setStatus] = useState<StravaCredentialStatus | null>(null);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
-  const [redirectUri, setRedirectUri] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -47,7 +44,6 @@ export function StravaConnectPage() {
         });
         setStatus(data);
         setClientId(data.clientId ?? '');
-        setRedirectUri(data.redirectUri ?? defaultRedirectUri);
       } catch (err) {
         setError(
           err instanceof Error ?
@@ -84,7 +80,6 @@ export function StravaConnectPage() {
     });
     setStatus(data);
     setClientId(data.clientId ?? '');
-    setRedirectUri(data.redirectUri ?? defaultRedirectUri);
   };
 
   const onSave = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -98,11 +93,6 @@ export function StravaConnectPage() {
       setError('Mot de passe courant requis pour valider la modification.');
       return;
     }
-    if (!redirectUri.trim()) {
-      setError('Redirect URI obligatoire.');
-      return;
-    }
-
     setSaving(true);
     setError(null);
     setInfo(null);
@@ -114,7 +104,7 @@ export function StravaConnectPage() {
         body: {
           clientId,
           clientSecret,
-          redirectUri: redirectUri.trim(),
+          redirectUri: defaultRedirectUri,
           currentPassword,
         },
       });
@@ -219,13 +209,12 @@ export function StravaConnectPage() {
               </a>
             </li>
             <li className='rounded-lg border border-black/10 bg-black/[0.03] p-2'>
-              <p className='font-semibold text-ink'>2) Copie ces valeurs dans Strava</p>
-              <p>
-                Authorization Callback Domain:{' '}
-                <span className='font-mono'>{callbackDomain}</span>
+              <p className='font-semibold text-ink'>
+                2) Configure les champs API de ton application Strava
               </p>
               <p>
-                Redirect URI: <span className='font-mono'>{defaultRedirectUri}</span>
+                Utilise le meme domaine public que ton application (Railway ou
+                domaine custom).
               </p>
             </li>
             <li className='rounded-lg border border-black/10 bg-black/[0.03] p-2'>
@@ -288,20 +277,6 @@ export function StravaConnectPage() {
               </div>
 
               <div className='space-y-1.5'>
-                <label className='text-xs text-muted' htmlFor='strava-redirect-uri'>
-                  Redirect URI
-                </label>
-                <input
-                  className={inputClass}
-                  id='strava-redirect-uri'
-                  onChange={(event) => setRedirectUri(event.target.value)}
-                  placeholder='https://ton-domaine/auth/callback'
-                  required
-                  value={redirectUri}
-                />
-              </div>
-
-              <div className='space-y-1.5'>
                 <label className='text-xs text-muted' htmlFor='current-password'>
                   Mot de passe courant (confirmation)
                 </label>
@@ -337,33 +312,33 @@ export function StravaConnectPage() {
               </div>
             </form>
 
-            <div className='rounded-xl border border-black/10 bg-white/70 p-3'>
-              <p className='text-xs font-semibold text-ink'>Etape 2/2 - OAuth Strava</p>
-              <p className='text-xs text-muted'>
-                {hasCredentialsConfigured ?
-                  'Credentials OK. Clique ci-dessous pour lancer OAuth.'
-                : 'Commence par l etape 1 (credentials) pour activer OAuth.'}
-              </p>
-              <button
-                className={`mt-2 px-4 ${primaryButtonClass}`}
-                disabled={oauthLoading || !hasCredentialsConfigured}
-                onClick={startStravaAuth}
-                type='button'
-              >
-                {oauthLoading ? 'Redirection...' : 'Etape 2 - Connecter Strava (OAuth)'}
-              </button>
-              {hasCredentialsConfigured ? (
-                <p className='mt-2 text-[11px] text-muted'>
-                  {t('stravaConnect.redirectToSettingsImport')}
-                </p>
-              ) : null}
-            </div>
-
             {error ? <p className='text-sm text-red-700'>{error}</p> : null}
             {info ? <p className='text-sm text-emerald-700'>{info}</p> : null}
           </div>
         )}
       </Card>
+
+      {hasCredentialsConfigured ? (
+        <Card>
+          <div className='space-y-3'>
+            <p className='text-sm font-semibold'>Connexion OAuth</p>
+            <p className='text-xs text-muted'>
+              Credentials OK. Lance la connexion OAuth Strava.
+            </p>
+            <button
+              className='inline-flex h-12 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300'
+              disabled={oauthLoading}
+              onClick={startStravaAuth}
+              type='button'
+            >
+              {oauthLoading ? 'Redirection...' : 'Connexion OAuth Strava'}
+            </button>
+            <p className='text-[11px] text-muted'>
+              {t('stravaConnect.redirectToSettingsImport')}
+            </p>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
