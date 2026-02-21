@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import ReactECharts from 'echarts-for-react';
+import ReactECharts from '../components/LocalizedECharts';
 import { apiRequest } from '../api/client';
 import { AIInsightButton } from '../components/AIInsightButton';
 import { Card } from '../components/Card';

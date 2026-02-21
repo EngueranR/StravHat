@@ -63,6 +63,7 @@ const publicUserSelect = {
   distanceUnit: true,
   elevationUnit: true,
   cadenceUnit: true,
+  language: true,
   subscriptionTier: true,
   createdAt: true,
   updatedAt: true,
@@ -97,6 +98,7 @@ function mapUser(user: PublicUserRecord) {
     distanceUnit: user.distanceUnit,
     elevationUnit: user.elevationUnit,
     cadenceUnit: user.cadenceUnit,
+    language: user.language === "en" ? "en" : "fr",
     subscriptionTier: user.subscriptionTier,
     subscription: {
       tier: user.subscriptionTier,

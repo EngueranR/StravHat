@@ -14,6 +14,8 @@ import {
 } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import type { AppLanguage } from '../i18n/language';
+import { normalizeLanguage, setAppLanguage } from '../i18n/language';
 
 type SectionKey = 'preferences' | 'dangerZone';
 type SettingsMobileTab = 'preferences' | 'danger';
@@ -70,6 +72,7 @@ export function SettingsPage() {
   const [elevationUnit, setElevationUnit] =
     useState<User['elevationUnit']>('m');
   const [cadenceUnit, setCadenceUnit] = useState<User['cadenceUnit']>('rpm');
+  const [language, setLanguage] = useState<AppLanguage>('fr');
   const [status, setStatus] = useState<string | null>(null);
   const [showRavitoModal, setShowRavitoModal] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<
@@ -110,6 +113,7 @@ export function SettingsPage() {
     setDistanceUnit(user.distanceUnit);
     setElevationUnit(user.elevationUnit);
     setCadenceUnit(user.cadenceUnit === 'spm' ? 'ppm' : user.cadenceUnit);
+    setLanguage(normalizeLanguage(user.language));
   }, [user]);
 
   const save = async () => {
@@ -182,10 +186,12 @@ export function SettingsPage() {
           distanceUnit,
           elevationUnit,
           cadenceUnit,
+          language,
         },
       });
       setStatus('Preferences mises a jour.');
       await refreshMe();
+      setAppLanguage(language);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Erreur update settings');
     }
@@ -480,6 +486,24 @@ export function SettingsPage() {
                     >
                       <option value='rpm'>rpm</option>
                       <option value='ppm'>ppm</option>
+                    </select>
+                  </label>
+
+                  <label className='grid gap-1 text-xs text-muted'>
+                    Langue / Language
+                    <select
+                      className={selectClass}
+                      value={language}
+                      onChange={(event) => {
+                        const nextLanguage = normalizeLanguage(
+                          event.target.value,
+                        );
+                        setLanguage(nextLanguage);
+                        void setAppLanguage(nextLanguage);
+                      }}
+                    >
+                      <option value='fr'>Francais</option>
+                      <option value='en'>English</option>
                     </select>
                   </label>
                 </div>

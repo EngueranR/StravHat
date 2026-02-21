@@ -34,6 +34,7 @@ model User {
   distanceUnit          String          @default("km")
   elevationUnit         String          @default("m")
   cadenceUnit           String          @default("rpm")
+  language              String          @default("fr")
   subscriptionTier      SubscriptionTier @default(FREE)
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt

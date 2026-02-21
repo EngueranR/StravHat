@@ -36,6 +36,7 @@ const settingsSchema = z.object({
   distanceUnit: z.enum(["km", "mi"]),
   elevationUnit: z.enum(["m", "ft"]),
   cadenceUnit: z.enum(["rpm", "ppm", "spm"]),
+  language: z.enum(["fr", "en"]).optional(),
 });
 
 const stravaCredentialUpdateSchema = z.object({
@@ -85,6 +86,7 @@ const meSelect = {
   distanceUnit: true,
   elevationUnit: true,
   cadenceUnit: true,
+  language: true,
   subscriptionTier: true,
   createdAt: true,
   updatedAt: true,
@@ -120,6 +122,7 @@ function mapMe(user: MeRecord) {
     distanceUnit: user.distanceUnit,
     elevationUnit: user.elevationUnit,
     cadenceUnit: user.cadenceUnit,
+    language: user.language === "en" ? "en" : "fr",
     subscriptionTier: user.subscriptionTier,
     subscription: {
       tier: user.subscriptionTier,
@@ -195,6 +198,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         distanceUnit: body.distanceUnit,
         elevationUnit: body.elevationUnit,
         cadenceUnit: body.cadenceUnit,
+        ...(body.language ? { language: body.language } : {}),
       },
     });
 

@@ -1,7 +1,7 @@
-import { SubscriptionTier, UsageFeature } from "@prisma/client";
-import { prisma } from "../db.js";
+import { SubscriptionTier, UsageFeature } from '@prisma/client';
+import { prisma } from '../db.js';
 
-type QuotaWindow = "day" | "week";
+type QuotaWindow = 'day' | 'week';
 
 interface FeatureQuotaDefinition {
   limit: number;
@@ -20,24 +20,24 @@ const limitsByTier: Record<SubscriptionTier, SubscriptionPlanLimits> = {
     stravaImportsPerDay: 1,
     aiRequestsPerDay: 5,
     trainingPlansPerWindow: 1,
-    trainingPlanWindow: "week",
+    trainingPlanWindow: 'week',
   },
   SUPPORTER: {
     stravaImportsPerDay: 5,
     aiRequestsPerDay: 20,
     trainingPlansPerWindow: 1,
-    trainingPlanWindow: "day",
+    trainingPlanWindow: 'day',
   },
 };
 
 export function planDisplayName(tier: SubscriptionTier) {
-  return tier === "SUPPORTER" ? "Ravito" : "Gratuit";
+  return tier === 'SUPPORTER' ? 'Ravito' : 'Gratuit';
 }
 
 export function planTagline(tier: SubscriptionTier) {
-  return tier === "SUPPORTER" ?
+  return tier === 'SUPPORTER' ?
       "Tu soutiens l'auteur et tu debloques des quotas elargis."
-    : "Plan de base pour demarrer.";
+    : 'Plan de base pour demarrer.';
 }
 
 export function getPlanLimits(tier: SubscriptionTier): SubscriptionPlanLimits {
@@ -49,16 +49,16 @@ function quotaDefinitionForFeature(
   feature: UsageFeature,
 ): FeatureQuotaDefinition {
   const limits = getPlanLimits(tier);
-  if (feature === "AI_REQUEST") {
+  if (feature === 'AI_REQUEST') {
     return {
       limit: limits.aiRequestsPerDay,
-      window: "day",
+      window: 'day',
     };
   }
-  if (feature === "STRAVA_IMPORT") {
+  if (feature === 'STRAVA_IMPORT') {
     return {
       limit: limits.stravaImportsPerDay,
-      window: "day",
+      window: 'day',
     };
   }
   return {
@@ -83,16 +83,16 @@ function startOfUtcIsoWeek(date = new Date()) {
 
 function resetAtForWindow(window: QuotaWindow, bucketStart: Date) {
   const resetAt = new Date(bucketStart);
-  resetAt.setUTCDate(resetAt.getUTCDate() + (window === "day" ? 1 : 7));
+  resetAt.setUTCDate(resetAt.getUTCDate() + (window === 'day' ? 1 : 7));
   return resetAt;
 }
 
 function featureLabel(feature: UsageFeature) {
-  if (feature === "STRAVA_IMPORT") {
-    return "import Strava";
+  if (feature === 'STRAVA_IMPORT') {
+    return 'import Strava';
   }
-  if (feature === "AI_REQUEST") {
-    return "requete IA";
+  if (feature === 'AI_REQUEST') {
+    return 'requete IA';
   }
   return "plan d'entrainement";
 }
@@ -121,13 +121,13 @@ export async function consumeQuota(
   });
 
   if (!user) {
-    throw new Error("Utilisateur introuvable");
+    throw new Error('Utilisateur introuvable');
   }
 
   const tier = user.subscriptionTier;
   const definition = quotaDefinitionForFeature(tier, feature);
   const bucketStart =
-    definition.window === "day" ? startOfUtcDay() : startOfUtcIsoWeek();
+    definition.window === 'day' ? startOfUtcDay() : startOfUtcIsoWeek();
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.usageCounter.upsert({
@@ -179,12 +179,13 @@ export async function consumeQuota(
   const used = result.count;
   const remaining = Math.max(definition.limit - used, 0);
   const resetAt = resetAtForWindow(definition.window, bucketStart);
-  const windowLabel = definition.window === "day" ? "aujourd'hui" : "cette semaine";
+  const windowLabel =
+    definition.window === 'day' ? "aujourd'hui" : 'cette semaine';
   const planName = planDisplayName(tier);
   const message =
-    result.incremented ?
-      null
-    : `Quota ${featureLabel(feature)} atteint (${used}/${definition.limit} ${windowLabel}). Plan actuel: ${planName}.`;
+    result.incremented ? null : (
+      `Quota ${featureLabel(feature)} atteint (${used}/${definition.limit} ${windowLabel}). Plan actuel: ${planName}. Merci de votre soutien pour debloquer plus de quota directement dans la section Settings!`
+    );
 
   return {
     allowed: result.incremented,

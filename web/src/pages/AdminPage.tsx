@@ -88,6 +88,7 @@ interface AdminUserItem {
   bannedAt: string | null;
   bannedReason: string | null;
   stravaAthleteId: number | null;
+  language: "fr" | "en";
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
@@ -648,6 +649,7 @@ export function AdminPage() {
 
                   <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2 lg:grid-cols-4">
                     <p>Athlete: {item.stravaAthleteId ?? "N/A"}</p>
+                    <p>Langue: {item.language === "en" ? "EN" : "FR"}</p>
                     <p>Activites: {item.activityCount}</p>
                     <p>Plans: {item.trainingPlanCount}</p>
                     <p>Events secu: {item.securityEventCount}</p>

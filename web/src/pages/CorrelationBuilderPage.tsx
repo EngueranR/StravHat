@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import ReactECharts from 'echarts-for-react';
+import ReactECharts from '../components/LocalizedECharts';
 import { apiRequest } from '../api/client';
 import type { Activity, ActivityListResponse } from '../api/types';
 import { ActivityModal } from '../components/ActivityModal';

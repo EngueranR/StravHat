@@ -29,6 +29,7 @@ export interface User {
   distanceUnit: "km" | "mi";
   elevationUnit: "m" | "ft";
   cadenceUnit: "rpm" | "ppm" | "spm";
+  language?: "fr" | "en";
   subscriptionTier?: "FREE" | "SUPPORTER";
   subscription?: SubscriptionInfo;
   createdAt: string;
