@@ -1135,208 +1135,104 @@ interface DayStateStatus {
   label: string;
   range: string;
   tone: DayStateTone;
+  score: number;
+}
+
+function dayStateFromScore(score: number, range: string): DayStateStatus {
+  const safeScore = clamp(Math.round(score), 0, 100);
+  if (safeScore >= 80) {
+    return { label: 'Bon', range, tone: 'good', score: safeScore };
+  }
+  if (safeScore >= 60) {
+    return { label: 'OK', range, tone: 'neutral', score: safeScore };
+  }
+  if (safeScore >= 35) {
+    return { label: 'Mauvais', range, tone: 'warn', score: safeScore };
+  }
+  return { label: 'Critique', range, tone: 'bad', score: safeScore };
 }
 
 function classifyTsbState(tsb: number): DayStateStatus {
-  if (tsb >= 10) {
-    return {
-      label: 'Bon',
-      range: `TSB ${number(tsb, 1)} (>= +10: tres frais)`,
-      tone: 'good',
-    };
-  }
-  if (tsb >= 3) {
-    return {
-      label: 'Bon',
-      range: `TSB ${number(tsb, 1)} (+3 a +10: frais)`,
-      tone: 'good',
-    };
-  }
-  if (tsb > -10) {
-    return {
-      label: 'OK',
-      range: `TSB ${number(tsb, 1)} (-10 a +3: equilibre)`,
-      tone: 'neutral',
-    };
-  }
-  if (tsb > -20) {
-    return {
-      label: 'Mauvais',
-      range: `TSB ${number(tsb, 1)} (-20 a -10: fatigue elevee)`,
-      tone: 'warn',
-    };
-  }
-  return {
-    label: 'Mauvais',
-    range: `TSB ${number(tsb, 1)} (<= -20: surcharge probable)`,
-    tone: 'bad',
-  };
-}
-
-function formatRatioWithPercent(ratio: number) {
-  return `${number(ratio, 2)} (${number(ratio * 100, 0)}%)`;
+  const score =
+    tsb >= 5 ?
+      100 - (tsb - 5) * 2
+    : 100 - (5 - tsb) * 2.8;
+  return dayStateFromScore(
+    score,
+    `TSB ${number(tsb, 1)} pts. Score(0-100) = 100 autour de TSB +5, puis baisse en s'eloignant.`,
+  );
 }
 
 function classifyAtlState(atl: number, ctl: number): DayStateStatus {
   const ratio = ctl > 0 ? atl / ctl : null;
 
   if (ratio !== null) {
-    if (ratio <= 0.8) {
-      return {
-        label: 'Bon',
-        range: `ATL/CTL ${formatRatioWithPercent(ratio)} (<= 0.80: fatigue basse)`,
-        tone: 'good',
-      };
-    }
-    if (ratio <= 1.05) {
-      return {
-        label: 'OK',
-        range: `ATL/CTL ${formatRatioWithPercent(ratio)} (0.81-1.05: fatigue controlee)`,
-        tone: 'neutral',
-      };
-    }
-    if (ratio <= 1.25) {
-      return {
-        label: 'Mauvais',
-        range: `ATL/CTL ${formatRatioWithPercent(ratio)} (1.06-1.25: fatigue elevee)`,
-        tone: 'warn',
-      };
-    }
-    return {
-      label: 'Mauvais',
-      range: `ATL/CTL ${formatRatioWithPercent(ratio)} (> 1.25: fatigue tres elevee)`,
-      tone: 'bad',
-    };
+    const score =
+      ratio <= 0.6 ? 70 + (ratio / 0.6) * 15
+      : ratio <= 0.9 ? 85 + ((ratio - 0.6) / 0.3) * 15
+      : ratio <= 1.05 ? 100 - ((ratio - 0.9) / 0.15) * 15
+      : ratio <= 1.25 ? 85 - ((ratio - 1.05) / 0.2) * 35
+      : ratio <= 1.6 ? 50 - ((ratio - 1.25) / 0.35) * 40
+      : 10 - (ratio - 1.6) * 20;
+
+    return dayStateFromScore(
+      score,
+      `ATL/CTL = ${number(ratio, 2)} (${number(ratio * 100, 0)}%). Zone cible ~0.85 a 1.05.`,
+    );
   }
 
-  if (atl <= 8) {
-    return {
-      label: 'Bon',
-      range: `ATL ${number(atl, 1)} (fallback ATL seul)`,
-      tone: 'good',
-    };
-  }
-  if (atl <= 15) {
-    return {
-      label: 'OK',
-      range: `ATL ${number(atl, 1)} (fallback ATL seul)`,
-      tone: 'neutral',
-    };
-  }
-  if (atl <= 25) {
-    return {
-      label: 'Mauvais',
-      range: `ATL ${number(atl, 1)} (fallback ATL seul)`,
-      tone: 'warn',
-    };
-  }
-  return {
-    label: 'Mauvais',
-    range: `ATL ${number(atl, 1)} (fallback ATL seul)`,
-    tone: 'bad',
-  };
+  return dayStateFromScore(
+    100 - atl * 4,
+    `ATL ${number(atl, 1)} pts (mode simplifie sans ratio ATL/CTL).`,
+  );
 }
 
 function classifyChargeState(charge: number, ctl: number): DayStateStatus {
   const ratio = ctl > 0 ? charge / ctl : null;
 
   if (ratio !== null) {
-    if (ratio <= 0.6) {
-      return {
-        label: 'Bon',
-        range: `Charge/CTL ${formatRatioWithPercent(ratio)} (<= 0.60: charge legere)`,
-        tone: 'good',
-      };
-    }
-    if (ratio <= 1.1) {
-      return {
-        label: 'OK',
-        range: `Charge/CTL ${formatRatioWithPercent(ratio)} (0.61-1.10: charge cible)`,
-        tone: 'neutral',
-      };
-    }
-    if (ratio <= 1.6) {
-      return {
-        label: 'Mauvais',
-        range: `Charge/CTL ${formatRatioWithPercent(ratio)} (1.11-1.60: charge soutenue)`,
-        tone: 'warn',
-      };
-    }
-    return {
-      label: 'Mauvais',
-      range: `Charge/CTL ${formatRatioWithPercent(ratio)} (> 1.60: charge tres elevee)`,
-      tone: 'bad',
-    };
+    const score =
+      ratio <= 0.4 ? 60 + (ratio / 0.4) * 15
+      : ratio <= 1.1 ? 75 + ((ratio - 0.4) / 0.7) * 25
+      : ratio <= 1.4 ? 100 - ((ratio - 1.1) / 0.3) * 35
+      : ratio <= 1.8 ? 65 - ((ratio - 1.4) / 0.4) * 45
+      : 20 - (ratio - 1.8) * 20;
+
+    return dayStateFromScore(
+      score,
+      `Charge/CTL = ${number(ratio, 2)} (${number(ratio * 100, 0)}%). Zone cible ~0.80 a 1.10.`,
+    );
   }
 
-  if (charge <= 8) {
-    return {
-      label: 'Bon',
-      range: `Charge ${number(charge, 1)} (fallback charge seule)`,
-      tone: 'good',
-    };
-  }
-  if (charge <= 15) {
-    return {
-      label: 'OK',
-      range: `Charge ${number(charge, 1)} (fallback charge seule)`,
-      tone: 'neutral',
-    };
-  }
-  if (charge <= 25) {
-    return {
-      label: 'Mauvais',
-      range: `Charge ${number(charge, 1)} (fallback charge seule)`,
-      tone: 'warn',
-    };
-  }
-  return {
-    label: 'Mauvais',
-    range: `Charge ${number(charge, 1)} (fallback charge seule)`,
-    tone: 'bad',
-  };
+  return dayStateFromScore(
+    100 - charge * 4,
+    `Charge ${number(charge, 1)} pts (mode simplifie sans ratio Charge/CTL).`,
+  );
 }
 
 function classifyCtlState(ctl: number, history: number[]): DayStateStatus {
   const validHistory = history.filter((value) => Number.isFinite(value));
   if (validHistory.length < 6) {
-    return {
-      label: 'OK',
-      range: 'Historique CTL insuffisant (< 6 points)',
-      tone: 'neutral',
-    };
+    return dayStateFromScore(
+      50,
+      `CTL ${number(ctl, 1)} pts. Historique CTL insuffisant (< 6 points) pour un score precis.`,
+    );
   }
 
-  const q33 = quantile(validHistory, 0.33);
-  const q66 = quantile(validHistory, 0.66);
-  if (q33 === null || q66 === null) {
-    return {
-      label: 'OK',
-      range: 'Intervalles CTL indisponibles',
-      tone: 'neutral',
-    };
+  const sorted = [...validHistory].sort((a, b) => a - b);
+  const rank = percentileRank(sorted, ctl);
+  if (rank === null) {
+    return dayStateFromScore(
+      50,
+      `CTL ${number(ctl, 1)} pts. Percentile perso indisponible.`,
+    );
   }
 
-  const rangeText = `Repere perso CTL: ${number(q33, 1)} - ${number(q66, 1)}`;
-  if (ctl < q33) {
-    return {
-      label: 'Mauvais',
-      range: `${rangeText} (niveau actuel ${number(ctl, 1)}: bas)`,
-      tone: 'warn',
-    };
-  }
-  if (ctl < q66) {
-    return {
-      label: 'OK',
-      range: `${rangeText} (niveau actuel ${number(ctl, 1)}: moyen)`,
-      tone: 'neutral',
-    };
-  }
-  return {
-    label: 'Bon',
-    range: `${rangeText} (niveau actuel ${number(ctl, 1)}: solide)`,
-    tone: 'good',
-  };
+  const score = rank * 100;
+  return dayStateFromScore(
+    score,
+    `CTL ${number(ctl, 1)} pts. Score base sur ton percentile personnel (${number(score, 0)}e/100).`,
+  );
 }
 
 function formatDuration(mins: number | null) {
@@ -2508,10 +2404,22 @@ export function AnalyticsPage() {
     const formeStatus = classifyCtlState(row.ctl, ctlHistory);
     const fatigueStatus = classifyAtlState(row.atl, row.ctl);
     const fraicheurStatus = classifyTsbState(row.tsb);
+    const globalScore = Math.round(
+      chargeStatus.score * 0.2 +
+        formeStatus.score * 0.15 +
+        fatigueStatus.score * 0.25 +
+        fraicheurStatus.score * 0.4,
+    );
+    const globalStatus = dayStateFromScore(
+      globalScore,
+      `Score global = 20% charge + 15% forme + 25% fatigue + 40% fraicheur.`,
+    );
     const freshnessLabel =
-      fraicheurStatus.tone === 'good' ? 'Bon niveau de fraicheur'
-      : fraicheurStatus.tone === 'neutral' ? 'Zone equilibree'
-      : 'Fatigue a surveiller';
+      globalScore >= 85 ? 'Etat optimal'
+      : globalScore >= 70 ? 'Etat solide'
+      : globalScore >= 55 ? 'Etat moyen'
+      : globalScore >= 35 ? 'Fatigue a surveiller'
+      : 'Risque eleve de fatigue';
 
     return {
       date: row.date,
@@ -2526,6 +2434,7 @@ export function AnalyticsPage() {
       formeStatus,
       fatigueStatus,
       fraicheurStatus,
+      globalStatus,
       freshnessLabel,
     };
   }, [loadData]);
@@ -3029,7 +2938,7 @@ export function AnalyticsPage() {
       }));
       const anchorSec =
         anchorRows.length >= 1 ?
-          weightedQuantile(anchorWeightedRows, 0.25)
+          weightedQuantile(anchorWeightedRows, 0.16)
         : null;
       const bestRecentNearSec =
         recentNearRows.length > 0 ?
@@ -3038,7 +2947,7 @@ export function AnalyticsPage() {
               value: row.predictedSec,
               weight: row.weight * (0.72 + row.intensityScore * 0.85),
             })),
-            0.08,
+            0.04,
           )
         : null;
       const bestEquivalentSec =
@@ -3048,13 +2957,59 @@ export function AnalyticsPage() {
               value: row.predictedSec,
               weight: row.weight * (0.8 + row.intensityScore * 0.7),
             })),
-            0.08,
+            0.03,
           )
         : null;
       const bestEquivalentHardCapSec =
         equivalentRecentRows.length > 0 ?
           Math.min(...equivalentRecentRows.map((row) => row.predictedSec))
         : null;
+      const equivalentRecentRuns = runRows
+        .map((run) => {
+          const distanceRatio = target.distanceKm / run.distanceKm;
+          const ageDays = Math.max(0, daysBetween(run.day, todayDay));
+          if (distanceRatio < 0.95 || distanceRatio > 1.05 || ageDays > 210) {
+            return null;
+          }
+          return {
+            run,
+            ageDays,
+            predictedSec: predictTimeSecFromRun(run, target.distanceKm),
+          };
+        })
+        .filter(
+          (
+            row,
+          ): row is {
+            run: (typeof runRows)[number];
+            ageDays: number;
+            predictedSec: number;
+          } => row !== null,
+        )
+        .sort((a, b) => a.predictedSec - b.predictedSec);
+      const bestEquivalentRun = equivalentRecentRuns[0] ?? null;
+      const raceDayEquivalentSec =
+        bestEquivalentRun === null ? null
+        : (() => {
+            const hrRatio = bestEquivalentRun.run.hrRatio;
+            const reserveScore =
+              hrRatio === null ? 0.45 : clamp((0.9 - hrRatio) / 0.25, 0, 1);
+            const recencyScore = Math.exp(-bestEquivalentRun.ageDays / 120);
+            const baseBoostPct =
+              target.distanceKm <= 10 ? 0.018
+              : target.distanceKm <= 21.0975 ? 0.014
+              : 0.01;
+            const reserveBoostPct = reserveScore * recencyScore * 0.03;
+            const freshnessBoostPct = recencyScore * 0.012;
+            const rawBoostPct =
+              baseBoostPct + reserveBoostPct + freshnessBoostPct;
+            const maxBoostPct =
+              target.distanceKm <= 10 ? 0.055
+              : target.distanceKm <= 21.0975 ? 0.043
+              : 0.03;
+            const boostPct = clamp(rawBoostPct, baseBoostPct, maxBoostPct);
+            return bestEquivalentRun.predictedSec * (1 - boostPct);
+          })();
       const competitiveRows = projections.filter((row) => {
         return (
           row.ageDays <= 365 &&
@@ -3075,9 +3030,9 @@ export function AnalyticsPage() {
                 : row.isNearDistance ? 1.24
                 : 1),
             })),
-            target.distanceKm <= 10 ? 0.16
-            : target.distanceKm <= 21.0975 ? 0.2
-            : 0.28,
+            target.distanceKm <= 10 ? 0.11
+            : target.distanceKm <= 21.0975 ? 0.15
+            : 0.22,
           )
         : null;
       const totalWeight = projections.reduce((sum, row) => sum + row.weight, 0);
@@ -3087,8 +3042,8 @@ export function AnalyticsPage() {
       const anchorStrength =
         anchorSec === null ? 0
         : equivalentRecentRows.length > 0 ?
-          clamp(0.7 + equivalentRecentRows.length * 0.05, 0.7, 0.88)
-        : clamp(0.42 + recentNearRows.length * 0.04, 0.42, 0.62) *
+          clamp(0.78 + equivalentRecentRows.length * 0.05, 0.78, 0.94)
+        : clamp(0.5 + recentNearRows.length * 0.05, 0.5, 0.72) *
           anchorCoverage;
       let estimatedSec: number | null =
         baseMedianSec === null && anchorSec !== null ? anchorSec
@@ -3103,16 +3058,23 @@ export function AnalyticsPage() {
         equivalentRecentRows.length > 0
       ) {
         const bestEquivalentBlend =
-          equivalentRecentRows.length >= 2 ? 0.62 : 0.48;
+          equivalentRecentRows.length >= 2 ? 0.74 : 0.6;
         estimatedSec =
           estimatedSec * (1 - bestEquivalentBlend) +
           bestEquivalentSec * bestEquivalentBlend;
       }
+      if (estimatedSec !== null && raceDayEquivalentSec !== null) {
+        const raceDayBlend =
+          equivalentRecentRuns.length >= 2 ? 0.72 : 0.58;
+        estimatedSec =
+          estimatedSec * (1 - raceDayBlend) +
+          raceDayEquivalentSec * raceDayBlend;
+      }
       if (estimatedSec !== null && competitiveAnchorSec !== null) {
         const competitiveBlend =
-          target.distanceKm <= 10 ? 0.42
-          : target.distanceKm <= 21.0975 ? 0.33
-          : 0.22;
+          target.distanceKm <= 10 ? 0.5
+          : target.distanceKm <= 21.0975 ? 0.4
+          : 0.28;
         estimatedSec =
           estimatedSec * (1 - competitiveBlend) +
           competitiveAnchorSec * competitiveBlend;
@@ -3120,9 +3082,9 @@ export function AnalyticsPage() {
 
       if (estimatedSec !== null && bestEquivalentHardCapSec !== null) {
         const optimismPct =
-          target.distanceKm <= 10 ? 0.01
-          : target.distanceKm <= 21.0975 ? 0.007
-          : 0.004;
+          target.distanceKm <= 10 ? 0.025
+          : target.distanceKm <= 21.0975 ? 0.02
+          : 0.012;
         const optimisticCapSec = bestEquivalentHardCapSec * (1 - optimismPct);
         estimatedSec = Math.min(estimatedSec, optimisticCapSec);
       } else if (
@@ -3130,7 +3092,7 @@ export function AnalyticsPage() {
         bestRecentNearSec !== null &&
         target.distanceKm <= 10
       ) {
-        estimatedSec = Math.min(estimatedSec, bestRecentNearSec * 0.996);
+        estimatedSec = Math.min(estimatedSec, bestRecentNearSec * 0.985);
       }
 
       if (
@@ -3138,17 +3100,28 @@ export function AnalyticsPage() {
         anchorSec !== null &&
         equivalentRecentRows.length > 0
       ) {
-        estimatedSec = clamp(estimatedSec, anchorSec * 0.95, anchorSec * 1.12);
+        estimatedSec = clamp(estimatedSec, anchorSec * 0.93, anchorSec * 1.1);
       }
       if (estimatedSec !== null && bestEquivalentSec !== null) {
         const bestEquivalentUpperBound =
-          target.distanceKm <= 10 ? 1.03
-          : target.distanceKm <= 21.0975 ? 1.06
-          : 1.1;
+          target.distanceKm <= 10 ? 1.02
+          : target.distanceKm <= 21.0975 ? 1.04
+          : 1.07;
         estimatedSec = clamp(
           estimatedSec,
-          bestEquivalentSec * 0.95,
+          bestEquivalentSec * 0.93,
           bestEquivalentSec * bestEquivalentUpperBound,
+        );
+      }
+      if (estimatedSec !== null && raceDayEquivalentSec !== null) {
+        const raceDayUpperBound =
+          target.distanceKm <= 10 ? 1.02
+          : target.distanceKm <= 21.0975 ? 1.03
+          : 1.04;
+        estimatedSec = clamp(
+          estimatedSec,
+          raceDayEquivalentSec * 0.94,
+          raceDayEquivalentSec * raceDayUpperBound,
         );
       }
 
@@ -5356,7 +5329,7 @@ export function AnalyticsPage() {
                 infoHint={{
                   title: 'Etat du jour',
                   description:
-                    'Lecture du jour basee sur CTL/ATL/TSB. Important: Charge, CTL et ATL sont des points de charge (pas des pourcentages), donc 83 = 83 points. Les ratios ATL/CTL et Charge/CTL sont sans unite: 1.00 = 100%, 1.30 = 130%. Modeles utilises: CTL (EMA 42j), ATL (EMA 7j), TSB = CTL - ATL. Intervalles pratiques: TSB >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 fatigue controlee, 1.06-1.25 fatigue elevee, > 1.25 fatigue tres elevee. Charge/CTL: <= 0.60 legere, 0.61-1.10 cible, 1.11-1.60 soutenue, > 1.60 tres elevee.',
+                    "Lecture simplifiee en score 0-100% (0 = tres mauvais, 100 = excellent). Les scores sont calcules a partir des metriques CTL/ATL/TSB: CTL = forme (EMA 42j), ATL = fatigue (EMA 7j), TSB = CTL - ATL. Le score global combine charge (20%), forme (15%), fatigue (25%) et fraicheur (40%).",
                   linkHref: 'https://pubmed.ncbi.nlm.nih.gov/24410871/',
                   linkLabel: 'Source: CTL/ATL/TSB et monitoring charge',
                 }}
@@ -5382,41 +5355,47 @@ export function AnalyticsPage() {
                     : `Pas de point exact aujourd'hui, dernier calcul disponible: ${todayLoadSummary.date}.`
                     }
                   </p>
+                  <p className='mb-3 text-xs text-muted'>
+                    Valeurs techniques: Charge {number(todayLoadSummary.charge, 1)} pts · CTL{' '}
+                    {number(todayLoadSummary.forme, 1)} pts · ATL{' '}
+                    {number(todayLoadSummary.fatigue, 1)} pts · TSB{' '}
+                    {number(todayLoadSummary.fraicheur, 1)} pts.
+                  </p>
                   <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-5'>
                     <StatCard
-                      label='Charge du jour'
-                      value={number(todayLoadSummary.charge, 1)}
+                      label='Charge du jour (score)'
+                      value={`${todayLoadSummary.chargeStatus.score}%`}
                       statusLabel={todayLoadSummary.chargeStatus.label}
                       statusRange={todayLoadSummary.chargeStatus.range}
                       statusTone={todayLoadSummary.chargeStatus.tone}
                     />
                     <StatCard
-                      label='Forme du jour (CTL)'
-                      value={number(todayLoadSummary.forme, 1)}
+                      label='Forme du jour (score)'
+                      value={`${todayLoadSummary.formeStatus.score}%`}
                       statusLabel={todayLoadSummary.formeStatus.label}
                       statusRange={todayLoadSummary.formeStatus.range}
                       statusTone={todayLoadSummary.formeStatus.tone}
                     />
                     <StatCard
-                      label='FATIGUE DU JOUR (ATL)'
-                      value={number(todayLoadSummary.fatigue, 1)}
+                      label='Fatigue du jour (score)'
+                      value={`${todayLoadSummary.fatigueStatus.score}%`}
                       statusLabel={todayLoadSummary.fatigueStatus.label}
                       statusRange={todayLoadSummary.fatigueStatus.range}
                       statusTone={todayLoadSummary.fatigueStatus.tone}
                     />
                     <StatCard
-                      label='Fraicheur (TSB)'
-                      value={number(todayLoadSummary.fraicheur, 1)}
+                      label='Fraicheur (score)'
+                      value={`${todayLoadSummary.fraicheurStatus.score}%`}
                       statusLabel={todayLoadSummary.fraicheurStatus.label}
                       statusRange={todayLoadSummary.fraicheurStatus.range}
                       statusTone={todayLoadSummary.fraicheurStatus.tone}
                     />
                     <StatCard
-                      label='Etat'
-                      value={todayLoadSummary.freshnessLabel}
-                      statusLabel={todayLoadSummary.fraicheurStatus.label}
-                      statusRange={todayLoadSummary.fraicheurStatus.range}
-                      statusTone={todayLoadSummary.fraicheurStatus.tone}
+                      label='Etat global'
+                      value={`${todayLoadSummary.globalStatus.score}%`}
+                      statusLabel={`${todayLoadSummary.globalStatus.label} · ${todayLoadSummary.freshnessLabel}`}
+                      statusRange={todayLoadSummary.globalStatus.range}
+                      statusTone={todayLoadSummary.globalStatus.tone}
                     />
                   </div>
                 </>
@@ -5502,11 +5481,11 @@ export function AnalyticsPage() {
             <Card>
               <SectionHeader
                 title='Temps de reference (hypothese)'
-                subtitle='Estimation 5 km, 10 km, semi et marathon avec ancrage optimiste sur les meilleures perfs equivalentes recentes'
+                subtitle='Estimation 5 km, 10 km, semi et marathon en mode tres optimiste (base entrainement), avec garde-fou realiste'
                 infoHint={{
                   title: 'Temps de reference',
                   description:
-                    "Estimation calculee sur un historique running elargi avec projection Riegel personnalisee et ancrage optimiste sur les meilleures seances equivalentes recentes (6 mois). Pour le marathon, l'estimation est aussi stabilisee via les semis/longues sorties recents.",
+                    "Estimation calculee sur l'historique running avec projection Riegel personnalisee, ancrage fort sur les meilleures seances equivalentes recentes et bonus 'jour de course' (car l'entrainement est rarement couru a 100%). Le resultat reste borne par des garde-fous de coherence pour eviter des predictions irrealistes.",
                   linkHref:
                     'https://en.wikipedia.org/wiki/Peter_Riegel#Riegel_formula',
                   linkLabel: 'Methode: formule de Riegel',
@@ -5518,7 +5497,7 @@ export function AnalyticsPage() {
                   {
                     referenceTimes: {
                       method:
-                        'Personalized Riegel + optimistic best-equivalent recent anchor + marathon semi/long-run anchor',
+                        'Personalized Riegel + strong optimistic equivalent anchor + race-day uplift + marathon semi/long-run anchor',
                       runCount: referenceTimes.runCount,
                       spanDays: referenceTimes.spanDays,
                       oldestDay: referenceTimes.oldestDay,

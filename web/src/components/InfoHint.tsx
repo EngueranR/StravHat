@@ -151,7 +151,7 @@ function buildCalculationNotes(title: string, description: string) {
   };
 
   if (hasAnyKeyword(haystack, ["ctl", "atl", "tsb", "charge", "fatigue", "forme"])) {
-    add("Charge, CTL et ATL sont en points de charge (pas en %). Exemple: 83 = 83 points.");
+    add("Charge, CTL et ATL bruts sont en points de charge. Certaines cartes les convertissent ensuite en score 0-100% pour simplifier la lecture.");
     add("CTL = EMA de la charge sur 42 jours (forme de fond).");
     add("ATL = EMA de la charge sur 7 jours (fatigue recente).");
     add("TSB = CTL - ATL (fraicheur).");
