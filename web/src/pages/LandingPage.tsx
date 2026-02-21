@@ -4,10 +4,12 @@ import { Card } from '../components/Card';
 import { SectionHeader } from '../components/SectionHeader';
 import { inputClass, primaryButtonClass } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n/framework';
 
 type AuthMode = 'login' | 'register';
 
 export function LandingPage() {
+  const { t } = useI18n();
   const { isAuthenticated, loading, user, loginWithPassword, registerWithPassword } =
     useAuth();
 
@@ -100,15 +102,15 @@ export function LandingPage() {
             </p>
             <div className='rounded-xl border border-black/10 bg-black/[0.03] p-3 text-xs text-muted'>
               <p className='font-semibold text-ink'>Parcours simple</p>
-              <p className='mt-1'>1) Connexion / Inscription</p>
+              <p className='mt-1'>{t('landing.simplePath.step1')}</p>
               <p>2) Page Connexion Strava: credentials puis OAuth</p>
-              <p>3) Parametres: Import des activites puis analyses</p>
+              <p>{t('landing.simplePath.step3')}</p>
             </div>
           </div>
 
           {loading ? (
             <div className='rounded-xl border border-black/10 bg-white/60 p-4 text-sm text-muted'>
-              Chargement session...
+              {t('common.sessionLoading')}
             </div>
           ) : (
             <>

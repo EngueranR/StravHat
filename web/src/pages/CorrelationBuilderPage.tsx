@@ -16,6 +16,7 @@ import {
 } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useI18n } from '../i18n/framework';
 import {
   convertCorrelationMetricValue,
   convertDistanceKm,
@@ -91,6 +92,7 @@ interface CorrelationBuilderPageProps {
 export function CorrelationBuilderPage({
   embedded = false,
 }: CorrelationBuilderPageProps) {
+  const { t } = useI18n();
   const { token, user } = useAuth();
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [xVar, setXVar] = useState('avgSpeed');
@@ -848,7 +850,7 @@ export function CorrelationBuilderPage({
       {!embedded ? (
         <PageHeader
           description='Selectionne des activites, puis clique sur les metriques a correler. Aucun champ manuel.'
-          title='Constructeur de correlations'
+          title={t('pages.correlationBuilder.title')}
         />
       ) : null}
       <Card>

@@ -1,31 +1,70 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import type { I18nMessageKey } from '../i18n/catalog';
+import { useI18n } from '../i18n/framework';
 import { useAuth } from '../contexts/AuthContext';
 
-const setupLinks = [
-  { to: '/settings', label: 'Parametres' },
-  { to: '/activities', label: 'Activites' },
+type LinkDef = {
+  to: string;
+  labelKey: I18nMessageKey;
+};
+
+const setupLinkDefs: LinkDef[] = [
+  { to: '/settings', labelKey: 'nav.settings' },
+  { to: '/activities', labelKey: 'nav.activities' },
 ];
 
-const analysisLinks = [
-  { to: '/analytics', label: 'Analyse' },
-  { to: '/training-plan', label: "Plan d'entrainement" },
-  { to: '/export', label: 'Export CSV' },
+const analysisLinkDefs: LinkDef[] = [
+  { to: '/analytics', labelKey: 'nav.analytics' },
+  { to: '/training-plan', labelKey: 'nav.trainingPlan' },
+  { to: '/export', labelKey: 'nav.exportCsv' },
 ];
 
 export function AppLayout() {
   const location = useLocation();
+  const { t } = useI18n();
   const { user, logout } = useAuth();
   const isStravaConnected = !!user?.connectedToStrava;
   const hasImportedActivities = !!user?.hasImportedActivities;
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+
   const fullLinks = useMemo(() => {
     const links = [
-      ...setupLinks,
-      ...(hasImportedActivities ? analysisLinks : []),
-    ];
-    return user?.isAdmin ? [...links, { to: '/admin', label: 'Administration' }] : links;
-  }, [hasImportedActivities, user?.isAdmin]);
+      ...setupLinkDefs,
+      ...(hasImportedActivities ? analysisLinkDefs : []),
+    ].map((link) => ({
+      to: link.to,
+      label: t(link.labelKey),
+    }));
+
+    if (user?.isAdmin) {
+      links.push({ to: '/admin', label: t('nav.admin') });
+    }
+
+    return links;
+  }, [hasImportedActivities, t, user?.isAdmin]);
+
+  const mobileQuickLinks = useMemo(() => {
+    return hasImportedActivities ?
+        [
+          { to: '/analytics', label: t('nav.analytics') },
+          { to: '/activities', label: t('nav.activities') },
+          { to: '/settings', label: t('nav.settings') },
+        ]
+      : [
+          { to: '/settings', label: t('nav.settings') },
+          { to: '/activities', label: t('nav.activities') },
+        ];
+  }, [hasImportedActivities, t]);
+
+  const mobileMoreLinks = useMemo(
+    () =>
+      fullLinks.filter(
+        (link) => !mobileQuickLinks.some((quickLink) => quickLink.to === link.to),
+      ),
+    [fullLinks, mobileQuickLinks],
+  );
+  const hasMobileMoreLinks = mobileMoreLinks.length > 0;
 
   useEffect(() => {
     setMobileSheetOpen(false);
@@ -39,7 +78,7 @@ export function AppLayout() {
             <div>
               <p className='text-lg font-semibold'>StravHat</p>
               <p className='mt-1 text-xs text-muted'>
-                Configuration Strava requise pour debloquer l'application.
+                {t('layout.stravaSetupRequired')}
               </p>
             </div>
             <button
@@ -47,7 +86,7 @@ export function AppLayout() {
               onClick={logout}
               type='button'
             >
-              Deconnexion
+              {t('common.logout')}
             </button>
           </header>
           {user?.isAdmin ? (
@@ -56,7 +95,7 @@ export function AppLayout() {
                 className='inline-flex h-9 items-center justify-center rounded-lg border border-black/20 px-3 text-xs hover:bg-black/5'
                 to='/admin'
               >
-                Administration
+                {t('nav.admin')}
               </Link>
             </div>
           ) : null}
@@ -67,22 +106,6 @@ export function AppLayout() {
       </div>
     );
   }
-
-  const mobileQuickLinks =
-    hasImportedActivities ?
-      [
-        { to: '/analytics', label: 'Analyse' },
-        { to: '/activities', label: 'Activites' },
-        { to: '/settings', label: 'Parametres' },
-      ]
-    : [
-        { to: '/settings', label: 'Parametres' },
-        { to: '/activities', label: 'Activites' },
-      ];
-  const mobileMoreLinks = fullLinks.filter(
-    (link) => !mobileQuickLinks.some((quickLink) => quickLink.to === link.to),
-  );
-  const hasMobileMoreLinks = mobileMoreLinks.length > 0;
 
   const desktopNavContent = (
     <nav className='grid grid-cols-1 gap-1'>
@@ -124,7 +147,7 @@ export function AppLayout() {
         })}
       </nav>
     ) : (
-      <p className='text-xs text-muted'>Aucune section supplementaire.</p>
+      <p className='text-xs text-muted'>{t('common.noExtraSections')}</p>
     );
 
   return (
@@ -133,14 +156,14 @@ export function AppLayout() {
         <header className='mb-4 rounded-2xl border border-black/10 bg-panel p-3 shadow-panel lg:hidden'>
           <p className='text-lg font-semibold'>StravHat</p>
           <p className='mt-1 text-xs text-muted'>
-            ID athlete: {user?.stravaAthleteId ?? 'non lie'}
+            {t('common.athleteId')}: {user?.stravaAthleteId ?? t('common.notLinked')}
           </p>
         </header>
 
         {mobileSheetOpen ? (
           <>
             <button
-              aria-label='Fermer le panneau'
+              aria-label={t('layout.closePanelAria')}
               className='fixed inset-0 z-40 bg-black/35 lg:hidden'
               onClick={() => setMobileSheetOpen(false)}
               type='button'
@@ -148,9 +171,9 @@ export function AppLayout() {
             <section className='fixed inset-x-0 bottom-0 z-50 max-h-[76vh] rounded-t-2xl border border-black/10 bg-panel p-4 shadow-panel lg:hidden'>
               <div className='mb-4 flex items-center justify-between gap-3'>
                 <div>
-                  <p className='text-sm font-semibold'>Menu mobile</p>
+                  <p className='text-sm font-semibold'>{t('layout.mobileMenuTitle')}</p>
                   <p className='text-xs text-muted'>
-                    Sections secondaires et compte
+                    {t('layout.mobileMenuSubtitle')}
                   </p>
                 </div>
                 <button
@@ -158,7 +181,7 @@ export function AppLayout() {
                   onClick={() => setMobileSheetOpen(false)}
                   type='button'
                 >
-                  Fermer
+                  {t('layout.closePanelAria')}
                 </button>
               </div>
               {mobileSheetNavContent}
@@ -167,7 +190,7 @@ export function AppLayout() {
                 onClick={logout}
                 type='button'
               >
-                Deconnexion
+                {t('common.logout')}
               </button>
             </section>
           </>
@@ -178,7 +201,7 @@ export function AppLayout() {
             <div className='mb-6'>
               <p className='text-lg font-semibold'>StravHat</p>
               <p className='mt-2 text-xs text-muted'>
-                ID athlete: {user?.stravaAthleteId ?? 'non lie'}
+                {t('common.athleteId')}: {user?.stravaAthleteId ?? t('common.notLinked')}
               </p>
             </div>
             {desktopNavContent}
@@ -187,7 +210,7 @@ export function AppLayout() {
               onClick={logout}
               type='button'
             >
-              Deconnexion
+              {t('common.logout')}
             </button>
           </aside>
           <main className='min-w-0 space-y-6 overflow-x-hidden pb-28 lg:pb-8'>
@@ -224,7 +247,7 @@ export function AppLayout() {
                 onClick={() => setMobileSheetOpen(true)}
                 className='inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[10px] font-medium leading-none whitespace-nowrap text-ink transition hover:bg-black/5'
               >
-                Plus
+                {t('common.more')}
               </button>
             ) : null}
           </div>

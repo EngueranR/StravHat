@@ -238,7 +238,13 @@ export function buildActivityWhere(userId: string, filters: ActivityFilters): Pr
     }
   }
 
-  where.AND = [...(where.AND ?? []), ...andConditions];
+  const existingAndConditions =
+    where.AND === undefined ?
+      []
+    : Array.isArray(where.AND) ?
+      where.AND
+    : [where.AND];
+  where.AND = [...existingAndConditions, ...andConditions];
 
   return where;
 }

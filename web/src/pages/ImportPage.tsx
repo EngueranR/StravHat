@@ -6,6 +6,7 @@ import { PageHeader } from "../components/PageHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import { primaryButtonClass, secondaryButtonClass, subtlePanelClass } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
+import { useI18n } from "../i18n/framework";
 
 interface ImportResult {
   ok: boolean;
@@ -21,6 +22,7 @@ const importStepLabels = [
 ];
 
 export function ImportPage() {
+  const { t } = useI18n();
   const { token, refreshMe, user } = useAuth();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -79,7 +81,7 @@ export function ImportPage() {
     <div>
       <PageHeader
         description="Importe l'historique Strava des seances de course a pied uniquement (Run/Trail/Virtual Run), via pagination 200/page."
-        title="Centre d'import"
+        title={t("pages.import.title")}
       />
       <Card>
         <SectionHeader

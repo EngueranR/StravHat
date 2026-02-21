@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { apiRequest } from '../api/client';
 import { roundIconButtonClass } from './InfoHint';
+import { subtlePanelClass } from './ui';
 
 export interface AiSectionAnalysisPayload {
   page: string;
@@ -31,6 +32,13 @@ interface ContextPlan {
   coreContext: Record<string, unknown>;
   options: ContextOption[];
 }
+
+const aiLoadingStepLabels = [
+  'Preparation du contexte de la section',
+  "Envoi de la requete vers l'API IA",
+  "Generation et structuration de l'analyse",
+  'Mise en forme du resultat final',
+];
 
 function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -280,6 +288,8 @@ export function AIInsightButton({ token, payload }: AIInsightButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AiSectionAnalysisResponse | null>(null);
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const payloadFingerprint = useMemo(() => JSON.stringify(payload), [payload]);
   const resolvedQuestion =
@@ -304,6 +314,29 @@ export function AIInsightButton({ token, payload }: AIInsightButtonProps) {
       graph: graphWithAllContext,
     };
   }, [contextPlan]);
+
+  useEffect(() => {
+    if (!loading) {
+      setActiveStepIndex(0);
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const stepTimer = window.setInterval(() => {
+      setActiveStepIndex((current) =>
+        Math.min(current + 1, aiLoadingStepLabels.length - 1),
+      );
+    }, 3200);
+
+    const elapsedTimer = window.setInterval(() => {
+      setElapsedSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(stepTimer);
+      window.clearInterval(elapsedTimer);
+    };
+  }, [loading]);
 
   const runAnalysis = async () => {
     if (!token) {
@@ -393,11 +426,43 @@ export function AIInsightButton({ token, payload }: AIInsightButtonProps) {
                 <p className='text-sm text-red-700'>{error}</p>
               : null}
               {loading ?
-                <div className='rounded-2xl border border-black/10 bg-black/[0.03] p-4'>
-                  <p className='text-sm text-muted'>
-                    Analyse en cours... L&apos;IA lit toutes les donnees
-                    disponibles et prepare ses conclusions.
-                  </p>
+                <div className={`${subtlePanelClass} space-y-3`}>
+                  <div className='flex items-center gap-2 text-sm'>
+                    <span className='inline-flex h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-ink' />
+                    <span>Analyse en cours ({elapsedSeconds}s)</span>
+                  </div>
+                  <ul className='space-y-1 text-xs'>
+                    {aiLoadingStepLabels.map((label, index) => {
+                      const done = index < activeStepIndex;
+                      const active = index === activeStepIndex;
+                      return (
+                        <li className='flex items-center gap-2' key={label}>
+                          <span
+                            className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] ${
+                              done ?
+                                'border-emerald-700 bg-emerald-700 text-white'
+                              : active ?
+                                'border-ink bg-ink text-white'
+                              : 'border-black/20 bg-white text-muted'
+                            }`}
+                          >
+                            {done ? '✓' : index + 1}
+                          </span>
+                          <span
+                            className={
+                              active ?
+                                'text-ink'
+                              : done ?
+                                'text-emerald-700'
+                              : 'text-muted'
+                            }
+                          >
+                            {label}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               : null}
 

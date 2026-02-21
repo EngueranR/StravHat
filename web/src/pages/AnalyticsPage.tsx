@@ -9,6 +9,7 @@ import { SectionHeader } from '../components/SectionHeader';
 import { StatCard } from '../components/StatCard';
 import { inputClass, selectClass } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n/framework';
 import { ActivityModal } from '../components/ActivityModal';
 import type { Activity, ActivityListResponse } from '../api/types';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -2035,6 +2036,7 @@ function buildDistributionDiagnostics(
 }
 
 export function AnalyticsPage() {
+  const { t } = useI18n();
   const { token, user } = useAuth();
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const unitPreferences = useMemo(() => resolveUnitPreferences(user), [user]);
@@ -2596,7 +2598,7 @@ export function AnalyticsPage() {
 
     const objectiveText =
       targetPaceMinPerKm === null ?
-        'Objectif non defini dans Parametres.'
+        t('analytics.goalNotDefinedInSettings')
       : `Objectif: ${number(goalDistanceKm ?? 0, 2)} km en ${goalTimeHours ?? 0}:${(
           goalTimeMinutes ?? 0
         )
@@ -2817,7 +2819,7 @@ export function AnalyticsPage() {
       },
       option: buildCompetencyRadarOption(metrics, 'Competences actuelles'),
     };
-  }, [allActivitiesForSkills, allLoadForSkills, user, unitPreferences]);
+  }, [allActivitiesForSkills, allLoadForSkills, t, user, unitPreferences]);
 
   const referenceTimes = useMemo(() => {
     const targets: Array<{
@@ -4833,8 +4835,8 @@ export function AnalyticsPage() {
   return (
     <div className='min-w-0 overflow-x-clip'>
       <PageHeader
-        description='Analyse organisee par themes: sante, pronostic, charge, performance et progres.'
-        title='Analyse'
+        description={t('pages.analytics.description')}
+        title={t('pages.analytics.title')}
       />
 
       <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
@@ -4843,21 +4845,21 @@ export function AnalyticsPage() {
           onClick={() => setActiveView('lab')}
           type='button'
         >
-          Analyse
+          {t('analytics.view.analysis')}
         </button>
         <button
           className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'historical' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
           onClick={() => setActiveView('historical')}
           type='button'
         >
-          Progres
+          {t('analytics.view.progress')}
         </button>
         <button
           className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'correlations' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
           onClick={() => setActiveView('correlations')}
           type='button'
         >
-          Correlations
+          {t('analytics.view.correlations')}
         </button>
       </div>
 
@@ -5427,7 +5429,7 @@ export function AnalyticsPage() {
             <Card>
               <SectionHeader
                 title='Radar des competences'
-                subtitle='Profil global base sur toutes les seances + objectif defini dans Parametres'
+                subtitle={t('analytics.skillsSubtitleWithSettings')}
                 infoHint={{
                   title: 'Radar des competences',
                   description:
@@ -5781,7 +5783,7 @@ export function AnalyticsPage() {
             <Card>
               <SectionHeader
                 title='Profil athlete & indicateurs derives'
-                subtitle='Base: donnees profil (Parametres) + activites filtrees de la periode.'
+                subtitle={t('analytics.profileSubtitleWithSettings')}
                 infoHint={{
                   title: 'Calculs derives',
                   description:

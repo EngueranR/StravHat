@@ -17,6 +17,14 @@ import { useAuth } from "../contexts/AuthContext";
 type UsageFeature = "STRAVA_IMPORT" | "AI_REQUEST" | "TRAINING_PLAN";
 type UserStatusFilter = "all" | "pending" | "approved" | "banned";
 type TierFilter = "all" | "FREE" | "SUPPORTER";
+type AdminDbTableKey =
+  | "users"
+  | "stravaTokens"
+  | "activities"
+  | "trainingPlans"
+  | "chartSnapshots"
+  | "securityEvents"
+  | "usageCounters";
 
 interface AdminOverviewResponse {
   generatedAt: string;
@@ -121,8 +129,36 @@ interface AdminUserPatchPayload {
   isAdmin?: boolean;
 }
 
+interface AdminDbTableInfo {
+  key: AdminDbTableKey;
+  label: string;
+  description: string;
+  readOnly: boolean;
+  editableFields: string[];
+  rowCount: number;
+}
+
+interface AdminDbTablesResponse {
+  tables: AdminDbTableInfo[];
+}
+
+interface AdminDbRowsResponse {
+  table: {
+    key: AdminDbTableKey;
+    label: string;
+    description: string;
+    readOnly: boolean;
+    editableFields: string[];
+  };
+  total: number;
+  limit: number;
+  offset: number;
+  items: Record<string, unknown>[];
+}
+
 const USERS_PAGE_SIZE = 25;
 const SECURITY_PAGE_SIZE = 25;
+const DB_PAGE_SIZE = 20;
 
 function formatDateTime(value: string | null) {
   if (!value) {
@@ -165,6 +201,18 @@ function statusLabel(item: AdminUserItem) {
   return "Whitelist";
 }
 
+function getDbRowId(row: Record<string, unknown>) {
+  return typeof row.id === "string" && row.id.trim().length > 0 ? row.id : null;
+}
+
+function safeJsonStringify(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 export function AdminPage() {
   const { token, user } = useAuth();
   const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
@@ -176,6 +224,20 @@ export function AdminPage() {
   const [securityEvents, setSecurityEvents] = useState<SecurityEventsResponse | null>(null);
   const [securityLoading, setSecurityLoading] = useState(true);
   const [securityError, setSecurityError] = useState<string | null>(null);
+  const [dbTables, setDbTables] = useState<AdminDbTableInfo[]>([]);
+  const [dbTablesLoading, setDbTablesLoading] = useState(true);
+  const [dbTablesError, setDbTablesError] = useState<string | null>(null);
+  const [selectedDbTable, setSelectedDbTable] = useState<AdminDbTableKey | "">("");
+  const [dbRows, setDbRows] = useState<AdminDbRowsResponse | null>(null);
+  const [dbRowsLoading, setDbRowsLoading] = useState(false);
+  const [dbRowsError, setDbRowsError] = useState<string | null>(null);
+  const [dbSearchDraft, setDbSearchDraft] = useState("");
+  const [dbSearch, setDbSearch] = useState("");
+  const [dbOffset, setDbOffset] = useState(0);
+  const [dbEditRowId, setDbEditRowId] = useState<string | null>(null);
+  const [dbEditDraft, setDbEditDraft] = useState("");
+  const [dbEditError, setDbEditError] = useState<string | null>(null);
+  const [dbSavingRowId, setDbSavingRowId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
 
@@ -261,6 +323,60 @@ export function AdminPage() {
     }
   }, [securityOffset, token]);
 
+  const loadDbTables = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    setDbTablesLoading(true);
+    setDbTablesError(null);
+
+    try {
+      const response = await apiRequest<AdminDbTablesResponse>("/admin/db/tables", { token });
+      setDbTables(response.tables);
+      setSelectedDbTable((current) => {
+        if (current && response.tables.some((item) => item.key === current)) {
+          return current;
+        }
+        return response.tables[0]?.key ?? "";
+      });
+    } catch (error) {
+      setDbTablesError(error instanceof Error ? error.message : "Erreur chargement tables DB");
+    } finally {
+      setDbTablesLoading(false);
+    }
+  }, [token]);
+
+  const loadDbRows = useCallback(async () => {
+    if (!token || !selectedDbTable) {
+      setDbRows(null);
+      return;
+    }
+
+    setDbRowsLoading(true);
+    setDbRowsError(null);
+
+    try {
+      const params = new URLSearchParams({
+        limit: String(DB_PAGE_SIZE),
+        offset: String(dbOffset),
+      });
+      if (dbSearch) {
+        params.set("q", dbSearch);
+      }
+
+      const response = await apiRequest<AdminDbRowsResponse>(
+        `/admin/db/${selectedDbTable}?${params.toString()}`,
+        { token },
+      );
+      setDbRows(response);
+    } catch (error) {
+      setDbRowsError(error instanceof Error ? error.message : "Erreur chargement donnees DB");
+    } finally {
+      setDbRowsLoading(false);
+    }
+  }, [dbOffset, dbSearch, selectedDbTable, token]);
+
   useEffect(() => {
     loadOverview().catch(() => undefined);
   }, [loadOverview]);
@@ -273,9 +389,28 @@ export function AdminPage() {
     loadSecurityEvents().catch(() => undefined);
   }, [loadSecurityEvents]);
 
+  useEffect(() => {
+    loadDbTables().catch(() => undefined);
+  }, [loadDbTables]);
+
+  useEffect(() => {
+    loadDbRows().catch(() => undefined);
+  }, [loadDbRows]);
+
+  useEffect(() => {
+    setDbEditRowId(null);
+    setDbEditDraft("");
+    setDbEditError(null);
+  }, [selectedDbTable]);
+
   const usersHasNext = !!users && users.offset + users.limit < users.total;
   const securityHasNext =
     !!securityEvents && securityEvents.offset + securityEvents.limit < securityEvents.total;
+  const dbHasNext = !!dbRows && dbRows.offset + dbRows.limit < dbRows.total;
+  const selectedDbTableInfo = useMemo(
+    () => dbTables.find((item) => item.key === selectedDbTable) ?? null,
+    [dbTables, selectedDbTable],
+  );
 
   const signupsLast14Days = useMemo(
     () =>
@@ -303,11 +438,75 @@ export function AdminPage() {
         body: payload,
       });
       setStatusMessage(successMessage);
-      await Promise.all([loadOverview(), loadUsers(), loadSecurityEvents()]);
+      await Promise.all([loadOverview(), loadUsers(), loadSecurityEvents(), loadDbTables(), loadDbRows()]);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Action admin impossible");
     } finally {
       setActionUserId(null);
+    }
+  };
+
+  const openDbEditor = (row: Record<string, unknown>) => {
+    if (!selectedDbTableInfo || selectedDbTableInfo.readOnly) {
+      return;
+    }
+
+    const rowId = getDbRowId(row);
+    if (!rowId) {
+      setStatusMessage("Cette ligne ne contient pas de champ id editable.");
+      return;
+    }
+
+    const draft: Record<string, unknown> = {};
+    for (const fieldName of selectedDbTableInfo.editableFields) {
+      if (Object.prototype.hasOwnProperty.call(row, fieldName)) {
+        draft[fieldName] = row[fieldName];
+      }
+    }
+
+    setDbEditRowId(rowId);
+    setDbEditDraft(JSON.stringify(draft, null, 2));
+    setDbEditError(null);
+  };
+
+  const saveDbEdit = async () => {
+    if (!token || !selectedDbTable || !dbEditRowId) {
+      return;
+    }
+
+    let parsedChanges: unknown;
+    try {
+      parsedChanges = JSON.parse(dbEditDraft);
+    } catch {
+      setDbEditError("JSON invalide. Corrige le format avant d'enregistrer.");
+      return;
+    }
+
+    if (!parsedChanges || Array.isArray(parsedChanges) || typeof parsedChanges !== "object") {
+      setDbEditError("Le payload doit etre un objet JSON.");
+      return;
+    }
+
+    setDbSavingRowId(dbEditRowId);
+    setDbEditError(null);
+
+    try {
+      await apiRequest<{ item: Record<string, unknown> }>(`/admin/db/${selectedDbTable}/${dbEditRowId}`, {
+        method: "PATCH",
+        token,
+        body: {
+          changes: parsedChanges,
+        },
+      });
+
+      setStatusMessage("Modification DB enregistree.");
+      setDbEditRowId(null);
+      setDbEditDraft("");
+      await Promise.all([loadDbRows(), loadDbTables()]);
+    } catch (error) {
+      setDbEditError(error instanceof Error ? error.message : "Impossible de sauvegarder.");
+    } finally {
+      setDbSavingRowId(null);
     }
   };
 
@@ -347,6 +546,8 @@ export function AdminPage() {
                 loadOverview().catch(() => undefined);
                 loadUsers().catch(() => undefined);
                 loadSecurityEvents().catch(() => undefined);
+                loadDbTables().catch(() => undefined);
+                loadDbRows().catch(() => undefined);
               }}
               type="button"
             >
@@ -790,6 +991,181 @@ export function AdminPage() {
                 className={secondaryButtonClass}
                 disabled={!usersHasNext || usersLoading}
                 onClick={() => setOffset((current) => current + USERS_PAGE_SIZE)}
+                type="button"
+              >
+                Page suivante
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Card>
+
+      <Card>
+        <SectionHeader
+          title="Explorateur DB"
+          subtitle="Visualisation et edition controlee des tables applicatives."
+        />
+
+        <div className="grid gap-3 lg:grid-cols-[240px,minmax(0,1fr),auto,auto]">
+          <select
+            className={selectClass}
+            disabled={dbTables.length === 0}
+            onChange={(event) => {
+              setSelectedDbTable(event.target.value as AdminDbTableKey);
+              setDbOffset(0);
+              setDbRows(null);
+            }}
+            value={selectedDbTable}
+          >
+            {dbTables.length === 0 ? (
+              <option value="">Aucune table</option>
+            ) : (
+              dbTables.map((table) => (
+                <option key={table.key} value={table.key}>
+                  {table.label} ({table.rowCount})
+                </option>
+              ))
+            )}
+          </select>
+          <input
+            className={inputClass}
+            onChange={(event) => setDbSearchDraft(event.target.value)}
+            placeholder="Recherche ID, userId, type..."
+            type="text"
+            value={dbSearchDraft}
+          />
+          <button
+            className={secondaryButtonClass}
+            onClick={() => {
+              setDbOffset(0);
+              setDbSearch(dbSearchDraft.trim());
+            }}
+            type="button"
+          >
+            Filtrer
+          </button>
+          <button
+            className={secondaryButtonClass}
+            onClick={() => {
+              loadDbTables().catch(() => undefined);
+              loadDbRows().catch(() => undefined);
+            }}
+            type="button"
+          >
+            Rafraichir
+          </button>
+        </div>
+
+        {dbTablesLoading ? <p className="mt-4 text-sm text-muted">Chargement tables DB...</p> : null}
+        {dbTablesError ? <p className="mt-4 text-sm text-red-700">{dbTablesError}</p> : null}
+
+        {selectedDbTableInfo ? (
+          <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] p-3 text-xs text-muted">
+            <p className="font-semibold text-ink">{selectedDbTableInfo.label}</p>
+            <p className="mt-1">{selectedDbTableInfo.description}</p>
+            <p className="mt-1">
+              Mode: {selectedDbTableInfo.readOnly ? "Lecture seule" : "Edition active"} | Champs editables:{" "}
+              {selectedDbTableInfo.editableFields.length > 0 ?
+                selectedDbTableInfo.editableFields.join(", ")
+              : "Aucun"}
+            </p>
+          </div>
+        ) : null}
+
+        {dbEditRowId ? (
+          <div className={`${subtlePanelClass} mt-4`}>
+            <p className="text-xs font-semibold text-ink">Edition ligne #{dbEditRowId}</p>
+            <p className="mt-1 text-xs text-muted">
+              Modifie uniquement les champs autorises puis enregistre.
+            </p>
+            <textarea
+              className={`${inputClass} mt-3 min-h-[220px] font-mono text-xs`}
+              onChange={(event) => setDbEditDraft(event.target.value)}
+              value={dbEditDraft}
+            />
+            {dbEditError ? <p className="mt-2 text-xs text-red-700">{dbEditError}</p> : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className={primaryButtonClass}
+                disabled={dbSavingRowId === dbEditRowId}
+                onClick={() => {
+                  saveDbEdit().catch(() => undefined);
+                }}
+                type="button"
+              >
+                Enregistrer
+              </button>
+              <button
+                className={secondaryButtonClass}
+                disabled={dbSavingRowId === dbEditRowId}
+                onClick={() => {
+                  setDbEditRowId(null);
+                  setDbEditDraft("");
+                  setDbEditError(null);
+                }}
+                type="button"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {dbRowsLoading ? <p className="mt-4 text-sm text-muted">Chargement lignes DB...</p> : null}
+        {dbRowsError ? <p className="mt-4 text-sm text-red-700">{dbRowsError}</p> : null}
+
+        {dbRows ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-muted">
+              Total: {dbRows.total} | Page: {Math.floor(dbRows.offset / dbRows.limit) + 1}
+            </p>
+            {dbRows.items.length === 0 ? (
+              <p className="text-sm text-muted">Aucune ligne pour ces filtres.</p>
+            ) : (
+              dbRows.items.map((row, index) => {
+                const rowId = getDbRowId(row) ?? `row-${index}`;
+                return (
+                  <div
+                    className="rounded-2xl border border-black/10 bg-black/[0.02] p-3 sm:p-4"
+                    key={`${selectedDbTable}-${rowId}-${index}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-ink">ID: {rowId}</p>
+                      {selectedDbTableInfo?.readOnly ? (
+                        <span className="rounded-full border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold text-muted">
+                          Lecture seule
+                        </span>
+                      ) : (
+                        <button
+                          className={secondaryButtonClass}
+                          onClick={() => openDbEditor(row)}
+                          type="button"
+                        >
+                          Modifier
+                        </button>
+                      )}
+                    </div>
+                    <pre className="mt-3 max-h-80 overflow-auto rounded-xl border border-black/10 bg-white p-3 text-[11px] text-ink">
+                      {safeJsonStringify(row)}
+                    </pre>
+                  </div>
+                );
+              })
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                className={secondaryButtonClass}
+                disabled={dbRows.offset === 0 || dbRowsLoading}
+                onClick={() => setDbOffset((current) => Math.max(current - DB_PAGE_SIZE, 0))}
+                type="button"
+              >
+                Page precedente
+              </button>
+              <button
+                className={secondaryButtonClass}
+                disabled={!dbHasNext || dbRowsLoading}
+                onClick={() => setDbOffset((current) => current + DB_PAGE_SIZE)}
                 type="button"
               >
                 Page suivante

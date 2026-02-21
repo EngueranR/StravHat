@@ -14,6 +14,7 @@ import {
   subtlePanelClass,
 } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n/framework';
 import type { AppLanguage } from '../i18n/language';
 import { normalizeLanguage, setAppLanguage } from '../i18n/language';
 
@@ -69,6 +70,7 @@ function parseGoalTimeToSeconds(value: string) {
 }
 
 export function SettingsPage() {
+  const { t } = useI18n();
   const { token, user, refreshMe, logout } = useAuth();
   const [hrMax, setHrMax] = useState(190);
   const [age, setAge] = useState('');
@@ -295,8 +297,8 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader
-        description='Profil, unites, import Strava, suppression des donnees et deconnexion.'
-        title='Parametres'
+        description={t('pages.settings.description')}
+        title={t('pages.settings.title')}
       />
       <div className='grid gap-6 lg:grid-cols-2'>
         <Card>

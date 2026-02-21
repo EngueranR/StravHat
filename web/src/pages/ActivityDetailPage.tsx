@@ -7,6 +7,7 @@ import { PageHeader } from "../components/PageHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import { subtlePanelClass } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
+import { useI18n } from "../i18n/framework";
 import { formatDate, formatHours, formatMinutes } from "../utils/format";
 import {
   formatCadenceFromRpm,
@@ -120,6 +121,7 @@ function relevanceScore(current: Activity, candidate: Activity) {
 }
 
 export function ActivityDetailPage() {
+  const { t } = useI18n();
   const { token, user } = useAuth();
   const unitPreferences = resolveUnitPreferences(user);
   const { id } = useParams();
@@ -402,15 +404,18 @@ export function ActivityDetailPage() {
 
   return (
     <div>
-      <PageHeader description="Toutes les metriques disponibles pour l'activite." title="Detail activite" />
+      <PageHeader
+        description="Toutes les metriques disponibles pour l'activite."
+        title={t("pages.activityDetail.title")}
+      />
       <Card>
         <div className="mb-4">
           <Link className="text-sm underline" to="/activities">
-            Retour activites
+            {t("pages.activityDetail.backToActivities")}
           </Link>
         </div>
         <SectionHeader
-          title={activity?.name ?? "Detail activite"}
+          title={activity?.name ?? t("pages.activityDetail.title")}
           subtitle={
             activity
               ? `${formatDate(activity.startDateLocal)} · ${activity.sportType || activity.type || "Activity"}`

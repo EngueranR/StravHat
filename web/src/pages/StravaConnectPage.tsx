@@ -5,6 +5,7 @@ import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
 import { inputClass, primaryButtonClass, secondaryButtonClass } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n/framework';
 
 interface StravaCredentialStatus {
   hasCustomCredentials: boolean;
@@ -13,6 +14,7 @@ interface StravaCredentialStatus {
 }
 
 export function StravaConnectPage() {
+  const { t } = useI18n();
   const { token, user, refreshMe } = useAuth();
   const defaultRedirectUri = `${window.location.origin}/auth/callback`;
   const callbackDomain = window.location.host;
@@ -352,8 +354,7 @@ export function StravaConnectPage() {
               </button>
               {hasCredentialsConfigured ? (
                 <p className='mt-2 text-[11px] text-muted'>
-                  Apres validation Strava, tu seras redirige automatiquement vers
-                  Parametres (section Import).
+                  {t('stravaConnect.redirectToSettingsImport')}
                 </p>
               ) : null}
             </div>

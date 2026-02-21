@@ -14,6 +14,7 @@ import {
 } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useI18n } from "../i18n/framework";
 import { formatDate, formatHours } from "../utils/format";
 import {
   cadenceUnitLabel,
@@ -32,6 +33,7 @@ const PAGE_SIZE = 30;
 type SectionKey = "filters" | "list";
 
 export function ActivitiesPage() {
+  const { t } = useI18n();
   const { token, user } = useAuth();
   const isMobile = useMediaQuery("(max-width: 1023px)");
   const unitPreferences = resolveUnitPreferences(user);
@@ -106,7 +108,10 @@ export function ActivitiesPage() {
 
   return (
     <div>
-      <PageHeader description="Historique complet avec filtres/tri/recherche." title="Activites" />
+      <PageHeader
+        description={t("pages.activities.description")}
+        title={t("pages.activities.title")}
+      />
       <Card>
         <SectionHeader
           title="Filtres activites"

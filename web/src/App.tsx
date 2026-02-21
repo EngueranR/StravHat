@@ -11,6 +11,7 @@ import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { StravaConnectPage } from "./pages/StravaConnectPage";
 import { TrainingPlanPage } from "./pages/TrainingPlanPage";
+import { useI18n } from "./i18n/framework";
 
 export function App() {
   return (
@@ -55,10 +56,11 @@ export function App() {
 }
 
 function RootRedirect() {
+  const { t } = useI18n();
   const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+    return <div className="p-6 text-sm text-muted">{t("common.sessionLoading")}</div>;
   }
 
   if (!isAuthenticated) {
@@ -77,10 +79,11 @@ function RootRedirect() {
 }
 
 function ProtectedRoutes() {
+  const { t } = useI18n();
   const { loading, isAuthenticated } = useAuth();
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+    return <div className="p-6 text-sm text-muted">{t("common.sessionLoading")}</div>;
   }
 
   if (!isAuthenticated) {
@@ -91,10 +94,11 @@ function ProtectedRoutes() {
 }
 
 function StravaUnlinkedRoutes() {
+  const { t } = useI18n();
   const { loading, user } = useAuth();
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+    return <div className="p-6 text-sm text-muted">{t("common.sessionLoading")}</div>;
   }
 
   if (user?.connectedToStrava) {
@@ -105,10 +109,11 @@ function StravaUnlinkedRoutes() {
 }
 
 function StravaLinkedRoutes() {
+  const { t } = useI18n();
   const { loading, user } = useAuth();
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+    return <div className="p-6 text-sm text-muted">{t("common.sessionLoading")}</div>;
   }
 
   if (!user?.connectedToStrava) {
@@ -119,10 +124,11 @@ function StravaLinkedRoutes() {
 }
 
 function ImportedDataRoutes() {
+  const { t } = useI18n();
   const { loading, user } = useAuth();
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+    return <div className="p-6 text-sm text-muted">{t("common.sessionLoading")}</div>;
   }
 
   if (!user?.hasImportedActivities) {
@@ -133,10 +139,11 @@ function ImportedDataRoutes() {
 }
 
 function AdminOnlyRoutes() {
+  const { t } = useI18n();
   const { loading, user } = useAuth();
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+    return <div className="p-6 text-sm text-muted">{t("common.sessionLoading")}</div>;
   }
 
   if (!user?.isAdmin) {
