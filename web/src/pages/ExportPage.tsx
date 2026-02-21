@@ -4,12 +4,11 @@ import { Card } from "../components/Card";
 import { FilterToggleButton } from "../components/FilterToggleButton";
 import { PageHeader } from "../components/PageHeader";
 import { SectionHeader } from "../components/SectionHeader";
-import { checkboxPillClass, inputClass, primaryButtonClass, selectClass } from "../components/ui";
+import { inputClass, primaryButtonClass, secondaryButtonClass } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { buildActivityFilterQuery, type ActivityFilterState } from "../utils/activityFilters";
 
-type ExportMode = "independent" | "combined" | "all";
 type ExportMetric =
   | "avgHr"
   | "maxHr"
@@ -27,6 +26,7 @@ type ExportMetric =
   | "movingTimeMin"
   | "elevGainM"
   | "sufferScore";
+type ExportPreset = "all" | "performance" | "cardio" | "power" | "runningDynamics";
 
 const metricOptions: Array<{ value: ExportMetric; label: string; description: string }> = [
   { value: "avgHr", label: "FC moyenne (bpm)", description: "Frequence cardiaque moyenne" },
@@ -45,6 +45,60 @@ const metricOptions: Array<{ value: ExportMetric; label: string; description: st
   { value: "movingTimeMin", label: "Temps (min)", description: "Temps de deplacement" },
   { value: "elevGainM", label: "D+ (m)", description: "Denivele positif" },
   { value: "sufferScore", label: "Suffer score", description: "Charge percue" },
+];
+
+const allMetrics = metricOptions.map((metric) => metric.value);
+
+const exportPresetOptions: Array<{
+  value: ExportPreset;
+  label: string;
+  description: string;
+  metrics: ExportMetric[];
+  filename: string;
+}> = [
+  {
+    value: "all",
+    label: "Tous les metrics",
+    description: "Export complet en 1 CSV (recommande).",
+    metrics: allMetrics,
+    filename: "stravhat-metrics-all.csv",
+  },
+  {
+    value: "performance",
+    label: "Performance",
+    description: "Distance, temps, allure, vitesse, D+ et suffer score.",
+    metrics: ["distanceKm", "movingTimeMin", "paceMinKm", "avgSpeedKmh", "elevGainM", "sufferScore"],
+    filename: "stravhat-metrics-performance.csv",
+  },
+  {
+    value: "cardio",
+    label: "Cardio",
+    description: "FC moyenne/max + cadence + suffer score.",
+    metrics: ["avgHr", "maxHr", "cadence", "sufferScore"],
+    filename: "stravhat-metrics-cardio.csv",
+  },
+  {
+    value: "power",
+    label: "Puissance & energie",
+    description: "Watts, kilojoules, calories et temps.",
+    metrics: ["avgWatts", "maxWatts", "kilojoules", "calories", "movingTimeMin"],
+    filename: "stravhat-metrics-power-energy.csv",
+  },
+  {
+    value: "runningDynamics",
+    label: "Run dynamics",
+    description: "Cadence, foulee, contact sol, oscillation + allure.",
+    metrics: [
+      "paceMinKm",
+      "cadence",
+      "strideLength",
+      "groundContactTime",
+      "verticalOscillation",
+      "distanceKm",
+      "movingTimeMin",
+    ],
+    filename: "stravhat-metrics-running-dynamics.csv",
+  },
 ];
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -76,7 +130,6 @@ export function ExportPage() {
   const [filters, setFilters] = useState<ActivityFilterState>({
     from: "",
     to: "",
-    type: "",
     minDistanceKm: "",
     maxDistanceKm: "",
     minTimeMin: "",
@@ -98,34 +151,16 @@ export function ExportPage() {
   });
   const [status, setStatus] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(isMobile);
-  const [mode, setMode] = useState<ExportMode>("all");
-  const [selectedMetrics, setSelectedMetrics] = useState<Record<ExportMetric, boolean>>({
-    avgHr: true,
-    maxHr: false,
-    paceMinKm: true,
-    avgSpeedKmh: false,
-    cadence: false,
-    strideLength: false,
-    groundContactTime: false,
-    verticalOscillation: false,
-    avgWatts: false,
-    maxWatts: false,
-    calories: false,
-    kilojoules: false,
-    distanceKm: false,
-    movingTimeMin: false,
-    elevGainM: false,
-    sufferScore: false,
-  });
+  const [activePreset, setActivePreset] = useState<ExportPreset>("all");
   const [isExporting, setIsExporting] = useState(false);
 
   const query = useMemo(() => {
     return buildActivityFilterQuery(filters);
   }, [filters]);
 
-  const selectedMetricValues = useMemo(
-    () => metricOptions.filter((metric) => selectedMetrics[metric.value]).map((metric) => metric.value),
-    [selectedMetrics],
+  const selectedPreset = useMemo(
+    () => exportPresetOptions.find((preset) => preset.value === activePreset) ?? exportPresetOptions[0],
+    [activePreset],
   );
 
   const requestCsv = async (urlPath: string, fallbackFilename: string) => {
@@ -148,41 +183,32 @@ export function ExportPage() {
     downloadBlob(blob, filename);
   };
 
-  const download = async () => {
+  const download = async (presetValue: ExportPreset) => {
     if (!token) {
       return;
     }
 
-    const allMetrics = metricOptions.map((metric) => metric.value);
-    const metrics = mode === "all" ? allMetrics : selectedMetricValues;
+    const preset = exportPresetOptions.find((item) => item.value === presetValue) ?? exportPresetOptions[0];
+    const metrics = preset.metrics;
 
     if (metrics.length === 0) {
-      setStatus("Selectionne au moins une metrique.");
+      setStatus("Aucune metrique trouvee pour ce preset.");
       return;
     }
 
+    setActivePreset(preset.value);
     setIsExporting(true);
-    setStatus("Export en cours...");
+    setStatus(`Export "${preset.label}" en cours...`);
 
     try {
       const baseQuery = query ? `&${query}` : "";
+      const metricsParam = encodeURIComponent(metrics.join(","));
+      await requestCsv(
+        `/export/metrics.csv?metrics=${metricsParam}${baseQuery}`,
+        preset.filename,
+      );
 
-      if (mode === "independent") {
-        for (const metric of metrics) {
-          await requestCsv(
-            `/export/metrics.csv?metrics=${metric}${baseQuery}`,
-            `stravhat-metric-${metric}.csv`,
-          );
-        }
-      } else {
-        const metricsParam = encodeURIComponent(metrics.join(","));
-        await requestCsv(
-          `/export/metrics.csv?metrics=${metricsParam}${baseQuery}`,
-          "stravhat-metrics-combined.csv",
-        );
-      }
-
-      setStatus("Export termine.");
+      setStatus(`Export termine (${metrics.length} metriques).`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Erreur export");
     } finally {
@@ -192,15 +218,18 @@ export function ExportPage() {
 
   return (
     <div>
-      <PageHeader description="Export CSV par metrique (BPM, allure, foulee, watts...)." title="Export CSV" />
+      <PageHeader
+        description="Export CSV simple: 1 clic pour tout exporter, plus des presets prets a l'emploi."
+        title="Export CSV"
+      />
       <Card>
         <SectionHeader
-          title="Export metriques"
-          subtitle="Independant = 1 CSV par metrique, Concatene = 1 CSV avec plusieurs metriques"
+          title="Export rapide"
+          subtitle="Simple et efficace: export complet par defaut, sans checkboxes."
           infoHint={{
-            title: "Mode export",
+            title: "Comment ca marche",
             description:
-              "Exemple: Independant + FC moyenne + Allure => 2 fichiers. Concatene + FC moyenne + Longueur foulee => 1 seul fichier avec les 2 colonnes.",
+              "Le bouton principal exporte toutes les metriques dans un seul CSV. Les presets servent a sortir rapidement un sous-ensemble utile (cardio, performance, puissance, run dynamics).",
           }}
           rightActions={
             <FilterToggleButton
@@ -213,7 +242,7 @@ export function ExportPage() {
           <p className="text-xs text-muted">Section repliee.</p>
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-xs text-muted">
                 Date debut
                 <input
@@ -232,52 +261,43 @@ export function ExportPage() {
                   value={filters.to ?? ""}
                 />
               </label>
-              <label className="grid gap-1 text-xs text-muted">
-                Type
-                <input
-                  className={inputClass}
-                  onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value }))}
-                  placeholder="Type"
-                  value={filters.type ?? ""}
-                />
-              </label>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1 text-xs text-muted">
-                Mode export
-                <select
-                  className={selectClass}
-                  value={mode}
-                  onChange={(event) => setMode(event.target.value as ExportMode)}
-                >
-                  <option value="independent">Independant (1 CSV par metrique)</option>
-                  <option value="combined">Concatene (1 CSV multi-metriques)</option>
-                  <option value="all">Tout (toutes les metriques)</option>
-                </select>
-              </label>
+            <div className="mt-4 rounded-xl border border-black/10 bg-black/5 p-3">
+              <p className="text-sm font-semibold text-ink">Export principal</p>
+              <p className="mt-1 text-xs text-muted">
+                1 CSV complet avec toutes les metriques ({allMetrics.length} colonnes metriques).
+              </p>
+              <button
+                className={`mt-3 ${primaryButtonClass}`}
+                disabled={isExporting}
+                onClick={() => download("all")}
+                type="button"
+              >
+                {isExporting && activePreset === "all" ? "Export..." : "Exporter tous les metrics"}
+              </button>
             </div>
 
-            <div className="mt-4 grid gap-2 md:grid-cols-3">
-              {metricOptions.map((metric) => {
-                const disabled = mode === "all";
-                return (
-                  <label key={metric.value} className={checkboxPillClass}>
-                    <input
-                      checked={selectedMetrics[metric.value]}
-                      disabled={disabled}
-                      onChange={(event) =>
-                        setSelectedMetrics((prev) => ({ ...prev, [metric.value]: event.target.checked }))
-                      }
-                      type="checkbox"
-                    />
-                    <span>
-                      <span className="block text-xs font-semibold text-ink">{metric.label}</span>
-                      <span className="text-[11px] text-muted">{metric.description}</span>
-                    </span>
-                  </label>
-                );
-              })}
+            <div className="mt-4">
+              <p className="text-xs uppercase tracking-wide text-muted">Exports rapides par theme</p>
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                {exportPresetOptions
+                  .filter((preset) => preset.value !== "all")
+                  .map((preset) => (
+                    <button
+                      key={preset.value}
+                      className={`${secondaryButtonClass} h-auto w-full flex-col items-start gap-1 p-3 text-left ${
+                        activePreset === preset.value ? "border-black/50 bg-black/[0.03]" : ""
+                      }`}
+                      disabled={isExporting}
+                      onClick={() => download(preset.value)}
+                      type="button"
+                    >
+                      <span className="text-sm font-semibold text-ink">{preset.label}</span>
+                      <span className="text-xs text-muted">{preset.description}</span>
+                    </button>
+                  ))}
+              </div>
             </div>
 
             <details className="mt-4 rounded-lg border border-black/10 bg-black/5 p-3">
@@ -393,16 +413,9 @@ export function ExportPage() {
                 />
               </div>
             </details>
-
-            <button
-              className={`mt-4 ${primaryButtonClass}`}
-              disabled={isExporting}
-              onClick={download}
-              type="button"
-            >
-              {isExporting ? "Export..." : "Telecharger CSV"}
-            </button>
-
+            <p className="mt-3 text-xs text-muted">
+              Preset selectionne: <strong>{selectedPreset.label}</strong>
+            </p>
             {status ? <p className="mt-3 text-sm text-muted">{status}</p> : null}
           </>
         )}

@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { logSecurityEvent } from "../services/securityAudit.js";
+import { getPlanLimits, planDisplayName, planTagline } from "../services/subscription.js";
 import {
   authDelay,
   decryptSecret,
@@ -70,6 +71,7 @@ const STRAVA_CREDENTIAL_RESET_WINDOW_MS = 15 * 60 * 1000;
 const meSelect = {
   id: true,
   email: true,
+  isAdmin: true,
   isApproved: true,
   stravaAthleteId: true,
   hrMax: true,
@@ -83,6 +85,7 @@ const meSelect = {
   distanceUnit: true,
   elevationUnit: true,
   cadenceUnit: true,
+  subscriptionTier: true,
   createdAt: true,
   updatedAt: true,
   stravaClientIdEnc: true,
@@ -103,6 +106,7 @@ function mapMe(user: MeRecord) {
   return {
     id: user.id,
     email: user.email,
+    isAdmin: user.isAdmin,
     isApproved: user.isApproved,
     stravaAthleteId: user.stravaAthleteId,
     hrMax: user.hrMax,
@@ -116,6 +120,13 @@ function mapMe(user: MeRecord) {
     distanceUnit: user.distanceUnit,
     elevationUnit: user.elevationUnit,
     cadenceUnit: user.cadenceUnit,
+    subscriptionTier: user.subscriptionTier,
+    subscription: {
+      tier: user.subscriptionTier,
+      name: planDisplayName(user.subscriptionTier),
+      tagline: planTagline(user.subscriptionTier),
+      limits: getPlanLimits(user.subscriptionTier),
+    },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     connectedToStrava: !!user.token,

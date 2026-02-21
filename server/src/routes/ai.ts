@@ -1,4 +1,4 @@
-import type { Activity, Prisma } from "@prisma/client";
+import { UsageFeature, type Activity, type Prisma } from "@prisma/client";
 import type { FastifyPluginAsync } from "fastify";
 import { createHash } from "node:crypto";
 import {
@@ -17,6 +17,7 @@ import {
   analyzeSectionWithHuggingFace,
   generateTrainingPlanWithHuggingFace,
 } from "../services/ai.js";
+import { consumeQuota } from "../services/subscription.js";
 import { buildLoadModel } from "../utils/analytics.js";
 
 const analyzeSchema = z.object({
@@ -444,6 +445,39 @@ function resolvePlanWeeksFromRaceDate(daysToRace: number): number | null {
   return Math.max(5, Math.min(18, Math.ceil(daysToRace / 7)));
 }
 
+function sendQuotaExceeded(
+  reply: {
+    code: (code: number) => {
+      send: (payload: unknown) => unknown;
+    };
+  },
+  quota: {
+    message: string | null;
+    feature: UsageFeature;
+    tier: string;
+    limit: number;
+    used: number;
+    remaining: number;
+    window: "day" | "week";
+    resetAt: string;
+  },
+) {
+  return reply.code(429).send({
+    message:
+      quota.message ??
+      "Quota atteint pour cette fonctionnalite. Essaie plus tard.",
+    quota: {
+      feature: quota.feature,
+      tier: quota.tier,
+      limit: quota.limit,
+      used: quota.used,
+      remaining: quota.remaining,
+      window: quota.window,
+      resetAt: quota.resetAt,
+    },
+  });
+}
+
 export const aiRoutes: FastifyPluginAsync = async (app) => {
   app.post("/analyze", { preHandler: [app.authenticate] }, async (request, reply) => {
     const body = analyzeSchema.parse(request.body);
@@ -466,6 +500,11 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
 
     if (!user) {
       return reply.code(404).send({ message: "Utilisateur introuvable" });
+    }
+
+    const aiQuota = await consumeQuota(request.userId, UsageFeature.AI_REQUEST);
+    if (!aiQuota.allowed) {
+      return sendQuotaExceeded(reply, aiQuota);
     }
 
     const result = await analyzeSectionWithHuggingFace({
@@ -527,6 +566,14 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
 
     if (!user) {
       return reply.code(404).send({ message: "Utilisateur introuvable" });
+    }
+
+    const trainingPlanQuota = await consumeQuota(
+      request.userId,
+      UsageFeature.TRAINING_PLAN,
+    );
+    if (!trainingPlanQuota.allowed) {
+      return sendQuotaExceeded(reply, trainingPlanQuota);
     }
 
     const context = buildTrainingContext(activities, user.hrMax);
@@ -678,6 +725,10 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
       const siblingSessions = week.sessions.filter(
         (row) => row.sessionIndex !== session.sessionIndex,
       ) as TrainingPlanSession[];
+      const aiQuota = await consumeQuota(request.userId, UsageFeature.AI_REQUEST);
+      if (!aiQuota.allowed) {
+        return sendQuotaExceeded(reply, aiQuota);
+      }
       const adapted = await adaptTrainingSessionWithHuggingFace({
         objective: parsedPlan.goal,
         startDate: parsedPlan.startDate,

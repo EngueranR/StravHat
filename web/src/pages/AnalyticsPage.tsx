@@ -4,7 +4,6 @@ import { apiRequest } from '../api/client';
 import { AIInsightButton } from '../components/AIInsightButton';
 import { Card } from '../components/Card';
 import { InfoHint } from '../components/InfoHint';
-import { MobileTabs } from '../components/MobileTabs';
 import { PageHeader } from '../components/PageHeader';
 import { SectionHeader } from '../components/SectionHeader';
 import { StatCard } from '../components/StatCard';
@@ -13,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ActivityModal } from '../components/ActivityModal';
 import type { Activity, ActivityListResponse } from '../api/types';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { CorrelationBuilderPage } from './CorrelationBuilderPage';
 import {
   buildActivityFilterQuery,
   type ActivityFilterState,
@@ -1327,27 +1327,10 @@ function ReliabilityGauge({ score }: { score: number }) {
   );
 }
 
-type AnalyticsView = 'lab' | 'historical';
+type AnalyticsView = 'lab' | 'historical' | 'correlations';
 type HeartRateZoneBasis = 'avg' | 'max';
-type AnalyticsLabMobileTab =
-  | 'today'
-  | 'skills'
-  | 'references'
-  | 'zones'
-  | 'heatmap'
-  | 'profile'
-  | 'trends'
-  | 'distributions'
-  | 'pivot'
-  | 'load';
-type AnalyticsHistoricalMobileTab =
-  | 'selection'
-  | 'synthesis'
-  | 'skills'
-  | 'simple'
-  | 'advanced'
-  | 'narrative'
-  | 'sessions';
+type LabTheme = 'health' | 'forecast' | 'load' | 'performance' | 'profile';
+type HistoricalTheme = 'setup' | 'insights' | 'advanced' | 'report';
 type AnalyticsSectionKey =
   | 'globalFilters'
   | 'labToday'
@@ -1371,34 +1354,21 @@ type AnalyticsSectionKey =
 type HistoricalPreset = 'strict' | 'balanced' | 'wide';
 type HistoricalMainMetric = 'speedKmh' | 'hr' | 'cadence' | 'intensityProxy';
 
-const mobileLabSectionByTab: Record<
-  AnalyticsLabMobileTab,
-  AnalyticsSectionKey
-> = {
-  today: 'labToday',
-  skills: 'labSkillsRadar',
-  references: 'labReferenceTimes',
-  zones: 'labHrZones',
-  heatmap: 'labHeatmap',
-  profile: 'labProfile',
-  trends: 'labTrends',
-  distributions: 'labDistributions',
-  pivot: 'labPivot',
-  load: 'labLoad',
+const labSectionsByTheme: Record<LabTheme, AnalyticsSectionKey[]> = {
+  health: ['labToday', 'labSkillsRadar', 'labHrZones'],
+  forecast: ['labReferenceTimes'],
+  load: ['labLoad', 'labHeatmap', 'labPivot'],
+  performance: ['labTrends', 'labDistributions'],
+  profile: ['labProfile'],
 };
 
-const mobileHistoricalSectionByTab: Record<
-  AnalyticsHistoricalMobileTab,
-  AnalyticsSectionKey
-> = {
-  selection: 'histSelection',
-  synthesis: 'histSynthesis',
-  skills: 'histSkills',
-  simple: 'histSimple',
-  advanced: 'histAdvancedMap',
-  narrative: 'histNarrative',
-  sessions: 'histSessions',
-};
+const historicalSectionsByTheme: Record<HistoricalTheme, AnalyticsSectionKey[]> =
+  {
+    setup: ['histSelection'],
+    insights: ['histSynthesis', 'histSkills', 'histSimple'],
+    advanced: ['histAdvancedMap', 'histAdvancedEvolution'],
+    report: ['histNarrative', 'histSessions'],
+  };
 
 type HistoricalFeature = 'speedKmh' | 'hr' | 'cadence' | 'durationMin';
 
@@ -2030,10 +2000,9 @@ export function AnalyticsPage() {
   });
 
   const [activeView, setActiveView] = useState<AnalyticsView>('lab');
-  const [mobileLabTab, setMobileLabTab] =
-    useState<AnalyticsLabMobileTab>('today');
-  const [mobileHistoricalTab, setMobileHistoricalTab] =
-    useState<AnalyticsHistoricalMobileTab>('selection');
+  const [labTheme, setLabTheme] = useState<LabTheme>('health');
+  const [historicalTheme, setHistoricalTheme] =
+    useState<HistoricalTheme>('setup');
   const [trendBucket, setTrendBucket] = useState('week');
   const distributionBins = 100;
   const [pivotRow, setPivotRow] = useState('type');
@@ -2111,9 +2080,10 @@ export function AnalyticsPage() {
     setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
   const showLabSection = (section: AnalyticsSectionKey) =>
-    !isMobile || mobileLabSectionByTab[mobileLabTab] === section;
+    activeView === 'lab' && labSectionsByTheme[labTheme].includes(section);
   const showHistoricalSection = (section: AnalyticsSectionKey) =>
-    !isMobile || mobileHistoricalSectionByTab[mobileHistoricalTab] === section;
+    activeView === 'historical' &&
+    historicalSectionsByTheme[historicalTheme].includes(section);
 
   const filterDateMin = useMemo(() => startOfCurrentYearInputValue(), []);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
@@ -2994,6 +2964,16 @@ export function AnalyticsPage() {
         anchorRows.length >= 1 ?
           weightedQuantile(anchorWeightedRows, 0.25)
         : null;
+      const bestRecentNearSec =
+        recentNearRows.length > 0 ?
+          weightedQuantile(
+            recentNearRows.map((row) => ({
+              value: row.predictedSec,
+              weight: row.weight * (0.72 + row.intensityScore * 0.85),
+            })),
+            0.08,
+          )
+        : null;
       const bestEquivalentSec =
         equivalentRecentRows.length > 0 ?
           weightedQuantile(
@@ -3001,8 +2981,12 @@ export function AnalyticsPage() {
               value: row.predictedSec,
               weight: row.weight * (0.8 + row.intensityScore * 0.7),
             })),
-            0.12,
+            0.08,
           )
+        : null;
+      const bestEquivalentHardCapSec =
+        equivalentRecentRows.length > 0 ?
+          Math.min(...equivalentRecentRows.map((row) => row.predictedSec))
         : null;
       const competitiveRows = projections.filter((row) => {
         return (
@@ -3067,6 +3051,21 @@ export function AnalyticsPage() {
           competitiveAnchorSec * competitiveBlend;
       }
 
+      if (estimatedSec !== null && bestEquivalentHardCapSec !== null) {
+        const optimismPct =
+          target.distanceKm <= 10 ? 0.01
+          : target.distanceKm <= 21.0975 ? 0.007
+          : 0.004;
+        const optimisticCapSec = bestEquivalentHardCapSec * (1 - optimismPct);
+        estimatedSec = Math.min(estimatedSec, optimisticCapSec);
+      } else if (
+        estimatedSec !== null &&
+        bestRecentNearSec !== null &&
+        target.distanceKm <= 10
+      ) {
+        estimatedSec = Math.min(estimatedSec, bestRecentNearSec * 0.996);
+      }
+
       if (
         estimatedSec !== null &&
         anchorSec !== null &&
@@ -3075,10 +3074,14 @@ export function AnalyticsPage() {
         estimatedSec = clamp(estimatedSec, anchorSec * 0.95, anchorSec * 1.12);
       }
       if (estimatedSec !== null && bestEquivalentSec !== null) {
+        const bestEquivalentUpperBound =
+          target.distanceKm <= 10 ? 1.03
+          : target.distanceKm <= 21.0975 ? 1.06
+          : 1.1;
         estimatedSec = clamp(
           estimatedSec,
           bestEquivalentSec * 0.95,
-          bestEquivalentSec * 1.18,
+          bestEquivalentSec * bestEquivalentUpperBound,
         );
       }
 
@@ -4713,7 +4716,7 @@ export function AnalyticsPage() {
   return (
     <div className='min-w-0 overflow-x-clip'>
       <PageHeader
-        description='Analytics Lab avec 2 vues: tableau global et progres sur sessions similaires.'
+        description='Analytics organise par themes: sante, pronostic, charge, performance et progres.'
         title='Analytics Lab'
       />
 
@@ -4723,7 +4726,7 @@ export function AnalyticsPage() {
           onClick={() => setActiveView('lab')}
           type='button'
         >
-          Vue globale
+          Analyse
         </button>
         <button
           className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'historical' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
@@ -4732,42 +4735,61 @@ export function AnalyticsPage() {
         >
           Progres
         </button>
+        <button
+          className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'correlations' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
+          onClick={() => setActiveView('correlations')}
+          type='button'
+        >
+          Correlations
+        </button>
       </div>
-      {isMobile ?
-        activeView === 'lab' ?
-          <MobileTabs
-            tabs={[
-              { key: 'today', label: 'Etat' },
-              { key: 'skills', label: 'Radar' },
-              { key: 'references', label: 'Temps ref' },
-              { key: 'zones', label: 'Zones FC' },
-              { key: 'heatmap', label: 'Heatmap' },
-              { key: 'profile', label: 'Profil' },
-              { key: 'trends', label: 'Tendances' },
-              { key: 'distributions', label: 'Distributions' },
-              { key: 'pivot', label: 'Pivot' },
+
+      {activeView === 'lab' ? (
+        <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
+          {(
+            [
+              { key: 'health', label: 'Sante' },
+              { key: 'forecast', label: 'Pronostic' },
               { key: 'load', label: 'Charge' },
-            ]}
-            activeKey={mobileLabTab}
-            onChange={setMobileLabTab}
-          />
-        : <MobileTabs
-            tabs={[
-              { key: 'selection', label: 'Selection' },
-              { key: 'synthesis', label: 'Synthese' },
-              { key: 'skills', label: 'Radar' },
-              { key: 'simple', label: 'Graphique' },
-              { key: 'advanced', label: 'Avancee' },
-              { key: 'narrative', label: 'Analyse' },
-              { key: 'sessions', label: 'Sessions' },
-            ]}
-            activeKey={mobileHistoricalTab}
-            onChange={setMobileHistoricalTab}
-          />
+              { key: 'performance', label: 'Performance' },
+              { key: 'profile', label: 'Profil' },
+            ] as Array<{ key: LabTheme; label: string }>
+          ).map((theme) => (
+            <button
+              key={theme.key}
+              className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs ${labTheme === theme.key ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
+              onClick={() => setLabTheme(theme.key)}
+              type='button'
+            >
+              {theme.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      : null}
+      {activeView === 'historical' ? (
+        <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
+          {(
+            [
+              { key: 'setup', label: 'Configuration' },
+              { key: 'insights', label: 'Signaux' },
+              { key: 'advanced', label: 'Avance' },
+              { key: 'report', label: 'Rapport' },
+            ] as Array<{ key: HistoricalTheme; label: string }>
+          ).map((theme) => (
+            <button
+              key={theme.key}
+              className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs ${historicalTheme === theme.key ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
+              onClick={() => setHistoricalTheme(theme.key)}
+              type='button'
+            >
+              {theme.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      <Card>
+      {activeView !== 'correlations' ? <Card>
         <SectionHeader
           title='Filtres analytiques'
           subtitle="Recherche, periode, type d'activite et contraintes avancees."
@@ -5127,7 +5149,7 @@ export function AnalyticsPage() {
             </details>
           </>
         }
-      </Card>
+      </Card> : null}
 
       {error ?
         <p className='mt-4 text-sm text-red-700'>{error}</p>
@@ -5135,7 +5157,7 @@ export function AnalyticsPage() {
 
       {activeView === 'lab' ?
         <div className='mt-6 grid gap-6'>
-          {summaryData ?
+          {labTheme === 'health' && summaryData ?
             <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-5'>
               <StatCard
                 label='Activites'
@@ -5216,7 +5238,7 @@ export function AnalyticsPage() {
                 infoHint={{
                   title: 'Etat du jour',
                   description:
-                    "Lecture du jour basee sur CTL/ATL/TSB. Important: Charge, CTL et ATL sont des points de charge (pas des pourcentages), donc 83 = 83 points. Les ratios ATL/CTL et Charge/CTL sont sans unite: 1.00 = 100%, 1.30 = 130%. Modeles utilises: CTL (EMA 42j), ATL (EMA 7j), TSB = CTL - ATL. Intervalles pratiques: TSB >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 fatigue controlee, 1.06-1.25 fatigue elevee, > 1.25 fatigue tres elevee. Charge/CTL: <= 0.60 legere, 0.61-1.10 cible, 1.11-1.60 soutenue, > 1.60 tres elevee.",
+                    'Lecture du jour basee sur CTL/ATL/TSB. Important: Charge, CTL et ATL sont des points de charge (pas des pourcentages), donc 83 = 83 points. Les ratios ATL/CTL et Charge/CTL sont sans unite: 1.00 = 100%, 1.30 = 130%. Modeles utilises: CTL (EMA 42j), ATL (EMA 7j), TSB = CTL - ATL. Intervalles pratiques: TSB >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 fatigue controlee, 1.06-1.25 fatigue elevee, > 1.25 fatigue tres elevee. Charge/CTL: <= 0.60 legere, 0.61-1.10 cible, 1.11-1.60 soutenue, > 1.60 tres elevee.',
                   linkHref: 'https://pubmed.ncbi.nlm.nih.gov/24410871/',
                   linkLabel: 'Source: CTL/ATL/TSB et monitoring charge',
                 }}
@@ -5367,11 +5389,11 @@ export function AnalyticsPage() {
             <Card>
               <SectionHeader
                 title='Temps de reference (hypothese)'
-                subtitle='Estimation 5 km, 10 km, semi et marathon avec priorite aux perfs equivalentes recentes'
+                subtitle='Estimation 5 km, 10 km, semi et marathon avec ancrage optimiste sur les meilleures perfs equivalentes recentes'
                 infoHint={{
                   title: 'Temps de reference',
                   description:
-                    "Estimation calculee sur un historique running elargi avec projection Riegel personnalisee et ancrage prioritaire sur les seances equivalentes recentes (6 mois). Pour le marathon, l'estimation est aussi stabilisee via les semis/longues sorties recents.",
+                    "Estimation calculee sur un historique running elargi avec projection Riegel personnalisee et ancrage optimiste sur les meilleures seances equivalentes recentes (6 mois). Pour le marathon, l'estimation est aussi stabilisee via les semis/longues sorties recents.",
                   linkHref:
                     'https://en.wikipedia.org/wiki/Peter_Riegel#Riegel_formula',
                   linkLabel: 'Methode: formule de Riegel',
@@ -5383,7 +5405,7 @@ export function AnalyticsPage() {
                   {
                     referenceTimes: {
                       method:
-                        'Personalized Riegel + recent equivalent anchor + marathon semi/long-run anchor',
+                        'Personalized Riegel + optimistic best-equivalent recent anchor + marathon semi/long-run anchor',
                       runCount: referenceTimes.runCount,
                       spanDays: referenceTimes.spanDays,
                       oldestDay: referenceTimes.oldestDay,
@@ -5561,10 +5583,7 @@ export function AnalyticsPage() {
                       label='FC max reference'
                       value={`${number(heartRateZonesSummary.hrMax, 0)} bpm`}
                     />
-                    <StatCard
-                      label='Lecture active'
-                      value={`${activeHeartRateZonesView.basisLabel} (${number(activeHeartRateZonesView.sampleSize, 0)} activites)`}
-                    />
+
                     <StatCard
                       label='Zone dominante'
                       value={
@@ -6530,7 +6549,7 @@ export function AnalyticsPage() {
                 infoHint={{
                   title: 'CTL / ATL / TSB',
                   description:
-                    "Charge, CTL et ATL sont affiches en points de charge (ex: 83 points), alors que ATL/CTL est un ratio sans unite (ex: 1.30 = 130%). Calculs: CTL = EMA 42 jours, ATL = EMA 7 jours, TSB = CTL - ATL. Repere TSB: >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. Repere ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 controlee, 1.06-1.25 elevee, > 1.25 tres elevee.",
+                    'Charge, CTL et ATL sont affiches en points de charge (ex: 83 points), alors que ATL/CTL est un ratio sans unite (ex: 1.30 = 130%). Calculs: CTL = EMA 42 jours, ATL = EMA 7 jours, TSB = CTL - ATL. Repere TSB: >= +10 tres frais, +3 a +10 frais, -10 a +3 equilibre, -20 a -10 fatigue elevee, <= -20 surcharge probable. Repere ATL/CTL: <= 0.80 faible fatigue, 0.81-1.05 controlee, 1.06-1.25 elevee, > 1.25 tres elevee.',
                   linkHref: 'https://pubmed.ncbi.nlm.nih.gov/24410871/',
                   linkLabel: 'Source: CTL/ATL/TSB et monitoring charge',
                 }}
@@ -6552,7 +6571,8 @@ export function AnalyticsPage() {
             </Card>
           : null}
         </div>
-      : <div className='mt-6 grid gap-6'>
+      : activeView === 'historical' ?
+        <div className='mt-6 grid gap-6'>
           {showHistoricalSection('histSelection') ?
             <Card>
               <SectionHeader
@@ -6715,7 +6735,8 @@ export function AnalyticsPage() {
 
           {!historicalLoading && !historicalError && historicalComparison ?
             <>
-              <Card>
+              {showHistoricalSection('histSynthesis') ?
+                <Card>
                 <SectionHeader
                   title="Synthese d'evolution"
                   subtitle={`Comparaison debut vs recent sur ${historicalComparison.rows.length} sessions similaires.`}
@@ -6787,9 +6808,11 @@ export function AnalyticsPage() {
                     })}
                   </div>
                 }
-              </Card>
+                </Card>
+              : null}
 
-              <Card>
+              {showHistoricalSection('histSkills') ?
+                <Card>
                 <SectionHeader
                   title='Radar des competences'
                   subtitle='Profil en croix sur 6 dimensions'
@@ -6837,9 +6860,11 @@ export function AnalyticsPage() {
                     Pas assez de donnees pour estimer le radar de competences.
                   </p>
                 }
-              </Card>
+                </Card>
+              : null}
 
-              <Card>
+              {showHistoricalSection('histSimple') ?
+                <Card>
                 <SectionHeader
                   title='Graphique simple (zoomable)'
                   subtitle='Une seule metrique a la fois pour une lecture claire. Zoom avec la molette ou le slider.'
@@ -6906,9 +6931,14 @@ export function AnalyticsPage() {
                     />
                   </>
                 }
-              </Card>
+                </Card>
+              : null}
 
-              <Card>
+              {(
+                showHistoricalSection('histAdvancedMap') ||
+                showHistoricalSection('histAdvancedEvolution')
+              ) ?
+                <Card>
                 <details>
                   <summary className='cursor-pointer text-sm font-semibold'>
                     Vue avancee (optionnelle)
@@ -7000,9 +7030,11 @@ export function AnalyticsPage() {
                     </div>
                   </div>
                 </details>
-              </Card>
+                </Card>
+              : null}
 
-              <Card>
+              {showHistoricalSection('histNarrative') ?
+                <Card>
                 <SectionHeader
                   title='Analyse automatique'
                   subtitle='Lecture textuelle des signaux detectes.'
@@ -7036,9 +7068,11 @@ export function AnalyticsPage() {
                     ))}
                   </ol>
                 }
-              </Card>
+                </Card>
+              : null}
 
-              <Card>
+              {showHistoricalSection('histSessions') ?
+                <Card>
                 <SectionHeader
                   title='Sessions retenues'
                   subtitle='Top par similarite au profil de reference.'
@@ -7079,7 +7113,9 @@ export function AnalyticsPage() {
                       <article
                         className={`cursor-pointer rounded-xl border border-black/10 p-3 ${row.session.id === referenceId ? 'bg-amber-50/60' : 'bg-black/[0.03]'}`}
                         key={row.session.id}
-                        onClick={() => setSelectedActivity(row.session.activity)}
+                        onClick={() =>
+                          setSelectedActivity(row.session.activity)
+                        }
                       >
                         <p className='break-words text-sm font-medium'>
                           {row.session.activity.name}
@@ -7091,9 +7127,7 @@ export function AnalyticsPage() {
                           <p>
                             <span className='text-muted'>
                               Dist (
-                              {distanceUnitLabel(
-                                unitPreferences.distanceUnit,
-                              )}
+                              {distanceUnitLabel(unitPreferences.distanceUnit)}
                               ):
                             </span>{' '}
                             {formatDistanceFromKm(
@@ -7228,10 +7262,12 @@ export function AnalyticsPage() {
                     </table>
                   </div>
                 }
-              </Card>
+                </Card>
+              : null}
             </>
           : null}
         </div>
+      : <CorrelationBuilderPage embedded />
       }
 
       {selectedActivity ?

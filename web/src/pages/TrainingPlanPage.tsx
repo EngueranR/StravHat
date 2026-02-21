@@ -550,9 +550,9 @@ export function TrainingPlanPage() {
                       min={1}
                       step='0.1'
                       value={
-                        goalType === 'custom' ?
-                          customDistanceKm
-                        : `${goalDistanceDefaults[goalType]}`
+                        goalType === 'custom' ? customDistanceKm : (
+                          `${goalDistanceDefaults[goalType]}`
+                        )
                       }
                       onChange={(event) => {
                         setCustomDistanceKm(event.target.value);
@@ -711,210 +711,208 @@ export function TrainingPlanPage() {
                     l&apos;onglet parametres.
                   </p>
                 : <div className='mt-4 space-y-3'>
-                <div className='rounded-xl border border-black/10 bg-black/[0.02] p-3'>
-                  <p className='text-sm font-semibold'>{trainingPlan.title}</p>
-                  <p className='mt-1 break-words text-xs text-muted'>
-                    Objectif: {trainingPlan.goal} · {trainingPlan.weeks}{' '}
-                    semaines · Depart: {trainingPlan.startDate} · Course:{' '}
-                    {trainingPlan.raceDate} ({trainingPlan.daysToRace} jours)
-                  </p>
-                </div>
-
-                {trainingPlan.plan.map((week) => (
-                  <details
-                    key={`plan-week-${week.weekIndex}`}
-                    className='rounded-xl border border-black/10 bg-black/[0.02] p-3'
-                    open={week.weekIndex <= 1}
-                  >
-                    <summary className='cursor-pointer list-none'>
-                      <div className='flex flex-wrap items-center gap-2 text-sm font-semibold'>
-                        <span>Semaine {week.weekIndex}</span>
-                        <span className='rounded-full border border-black/15 bg-black/[0.03] px-2 py-0.5 text-[11px] font-semibold text-muted'>
-                          {week.theme}
-                        </span>
-                        <span className='rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700'>
-                          {number(week.weeklyVolumeKm, 1)} km
-                        </span>
-                      </div>
-                    </summary>
-                    <p className='mt-2 text-xs text-muted'>{week.focus}</p>
-                    <div className='mt-3 grid gap-3 xl:grid-cols-2'>
-                      {week.sessions.map((session) => {
-                        const editorKey = sessionEditorKey(
-                          week.weekIndex,
-                          session.sessionIndex,
-                        );
-                        const raceSession = isRacePlanSession(session);
-                        const isEditing = editingSessionKey === editorKey;
-                        const isAdapting = adaptingSessionKey === editorKey;
-                        const slotLabel =
-                          raceSession ?
-                            `Course objectif · ${formatRaceDateLabel(trainingPlan.raceDate)}`
-                          : `Seance libre ${session.sessionIndex}`;
-                        const zoneClass = zoneToneClass(
-                          session.zone,
-                          raceSession,
-                        );
-                        return (
-                          <div
-                            key={`plan-week-${week.weekIndex}-${session.sessionIndex}`}
-                            className='rounded-xl border border-black/10 bg-panel p-3 sm:p-4'
-                          >
-                            <div className='flex flex-wrap items-start justify-between gap-2'>
-                              <div className='min-w-0 flex-1'>
-                                <p className='text-[11px] uppercase tracking-wide text-muted'>
-                                  {slotLabel}
-                                </p>
-                                <p className='mt-1 text-sm font-semibold leading-snug text-ink'>
-                                  {session.title}
-                                </p>
-                              </div>
-                              <span
-                                className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${zoneClass}`}
-                              >
-                                {session.zone}
-                              </span>
-                            </div>
-                            {!raceSession ?
-                              <p className='mt-1 text-[11px] text-muted'>
-                                Placement libre: choisis le jour selon ton
-                                agenda et ta recuperation.
-                              </p>
-                            : null}
-
-                            <div className='mt-3 grid gap-2 sm:grid-cols-3'>
-                              <div className='rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-2'>
-                                <p className='text-[10px] uppercase tracking-wide text-muted'>
-                                  Distance
-                                </p>
-                                <p className='mt-1 text-sm font-semibold text-ink'>
-                                  {number(session.distanceKm, 1)} km
-                                </p>
-                              </div>
-                              <div className='rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-2'>
-                                <p className='text-[10px] uppercase tracking-wide text-muted'>
-                                  Duree
-                                </p>
-                                <p className='mt-1 text-sm font-semibold text-ink'>
-                                  {number(session.durationMin, 0)} min
-                                </p>
-                              </div>
-                              <div className='rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-2'>
-                                <p className='text-[10px] uppercase tracking-wide text-muted'>
-                                  Cible FC
-                                </p>
-                                <p className='mt-1 text-sm font-semibold text-ink'>
-                                  {session.hrTarget}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className='mt-3 rounded-lg border border-black/10 bg-black/[0.02] p-2.5'>
-                              <p className='text-[10px] uppercase tracking-wide text-muted'>
-                                Objectif seance
-                              </p>
-                              <p className='mt-1 text-sm leading-relaxed text-ink'>
-                                {session.objective}
-                              </p>
-                              <p className='mt-1 text-xs text-muted'>
-                                Allure cible: {session.paceTarget}
-                              </p>
-                            </div>
-
-                            <details className='mt-3 rounded-lg border border-black/10 bg-black/[0.02] p-2.5'>
-                              <summary className='cursor-pointer text-xs font-semibold text-ink'>
-                                Voir le detail des blocs (
-                                {session.blocks.length})
-                              </summary>
-                              <div className='mt-2 space-y-2'>
-                                {session.blocks.map((block, blockIndex) => (
-                                  <div
-                                    key={`plan-week-${week.weekIndex}-${session.sessionIndex}-block-${blockIndex + 1}`}
-                                    className='rounded-lg border border-black/10 bg-panel px-2.5 py-2'
-                                  >
-                                    <div className='flex flex-wrap items-center justify-between gap-2'>
-                                      <p className='text-xs font-semibold text-ink'>
-                                        {block.step}
-                                      </p>
-                                      <span className='rounded-full border border-black/15 bg-black/[0.03] px-2 py-0.5 text-[10px] font-semibold text-muted'>
-                                        {blockVolumeLabel(block)}
-                                      </span>
-                                    </div>
-                                    <p className='mt-1 text-xs text-muted'>
-                                      Allure {block.paceTarget}
-                                    </p>
-                                    <p className='mt-1 text-xs text-muted'>
-                                      FC {block.hrTarget}
-                                    </p>
-                                    {block.notes ?
-                                      <p className='mt-1 text-xs text-muted'>
-                                        {block.notes}
-                                      </p>
-                                    : null}
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
-
-                            <div className='mt-3 space-y-1 text-xs text-muted'>
-                              <p>
-                                <span className='font-semibold text-ink'>
-                                  Pourquoi:
-                                </span>{' '}
-                                {session.rationale}
-                              </p>
-                            </div>
-
-                            {isEditing && !raceSession ?
-                              <div className='mt-2 space-y-2 rounded-lg border border-black/10 bg-black/[0.03] p-2.5'>
-                                <label className='grid gap-1 text-xs text-muted'>
-                                  Ce qui ne va pas / ce que tu veux changer
-                                  <textarea
-                                    className={textareaClass}
-                                    value={sessionAdaptRequest}
-                                    onChange={(event) =>
-                                      setSessionAdaptRequest(event.target.value)
-                                    }
-                                    placeholder='Ex: trop intense apres la sortie longue, je veux une variante plus progressive avec fractionnes courts.'
-                                  />
-                                </label>
-                                <div className='flex flex-wrap gap-2'>
-                                  <button
-                                    className={primaryButtonClass}
-                                    type='button'
-                                    disabled={isAdapting}
-                                    onClick={() => {
-                                      void runSessionAdaptation(
-                                        week.weekIndex,
-                                        session.sessionIndex,
-                                      );
-                                    }}
-                                  >
-                                    {isAdapting ?
-                                      'Adaptation IA...'
-                                    : 'Valider adaptation'}
-                                  </button>
-                                  <button
-                                    className={secondaryButtonCompactClass}
-                                    type='button'
-                                    disabled={isAdapting}
-                                    onClick={() => {
-                                      setEditingSessionKey(null);
-                                      setSessionAdaptRequest('');
-                                    }}
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </div>
-                            : null}
-                          </div>
-                        );
-                      })}
+                    <div className='rounded-xl border border-black/10 bg-black/[0.02] p-3'>
+                      <p className='text-sm font-semibold'>
+                        {trainingPlan.title}
+                      </p>
+                      <p className='mt-1 break-words text-xs text-muted'>
+                        Objectif: {trainingPlan.goal} · {trainingPlan.weeks}{' '}
+                        semaines · Depart: {trainingPlan.startDate} · Course:{' '}
+                        {trainingPlan.raceDate} ({trainingPlan.daysToRace}{' '}
+                        jours)
+                      </p>
                     </div>
-                  </details>
-                ))}
-                </div>
+
+                    {trainingPlan.plan.map((week) => (
+                      <details
+                        key={`plan-week-${week.weekIndex}`}
+                        className='rounded-xl border border-black/10 bg-black/[0.02] p-3'
+                        open={week.weekIndex <= 1}
+                      >
+                        <summary className='cursor-pointer list-none'>
+                          <div className='flex flex-wrap items-center gap-2 text-sm font-semibold'>
+                            <span>Semaine {week.weekIndex}</span>
+                            <span className='rounded-full border border-black/15 bg-black/[0.03] px-2 py-0.5 text-[11px] font-semibold text-muted'>
+                              {week.theme}
+                            </span>
+                            <span className='rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700'>
+                              {number(week.weeklyVolumeKm, 1)} km
+                            </span>
+                          </div>
+                        </summary>
+                        <p className='mt-2 text-xs text-muted'>{week.focus}</p>
+                        <div className='mt-3 grid gap-3 xl:grid-cols-2'>
+                          {week.sessions.map((session) => {
+                            const editorKey = sessionEditorKey(
+                              week.weekIndex,
+                              session.sessionIndex,
+                            );
+                            const raceSession = isRacePlanSession(session);
+                            const isEditing = editingSessionKey === editorKey;
+                            const isAdapting = adaptingSessionKey === editorKey;
+                            const slotLabel =
+                              raceSession ?
+                                `Course objectif · ${formatRaceDateLabel(trainingPlan.raceDate)}`
+                              : `Seance libre ${session.sessionIndex}`;
+                            const zoneClass = zoneToneClass(
+                              session.zone,
+                              raceSession,
+                            );
+                            return (
+                              <div
+                                key={`plan-week-${week.weekIndex}-${session.sessionIndex}`}
+                                className='rounded-xl border border-black/10 bg-panel p-3 sm:p-4'
+                              >
+                                <div className='flex flex-wrap items-start justify-between gap-2'>
+                                  <div className='min-w-0 flex-1'>
+                                    <p className='text-[11px] uppercase tracking-wide text-muted'>
+                                      {slotLabel}
+                                    </p>
+                                    <p className='mt-1 text-sm font-semibold leading-snug text-ink'>
+                                      {session.title}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${zoneClass}`}
+                                  >
+                                    {session.zone}
+                                  </span>
+                                </div>
+                                <div className='mt-3 grid gap-2 sm:grid-cols-3'>
+                                  <div className='rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-2'>
+                                    <p className='text-[10px] uppercase tracking-wide text-muted'>
+                                      Distance
+                                    </p>
+                                    <p className='mt-1 text-sm font-semibold text-ink'>
+                                      {number(session.distanceKm, 1)} km
+                                    </p>
+                                  </div>
+                                  <div className='rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-2'>
+                                    <p className='text-[10px] uppercase tracking-wide text-muted'>
+                                      Duree
+                                    </p>
+                                    <p className='mt-1 text-sm font-semibold text-ink'>
+                                      {number(session.durationMin, 0)} min
+                                    </p>
+                                  </div>
+                                  <div className='rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-2'>
+                                    <p className='text-[10px] uppercase tracking-wide text-muted'>
+                                      Cible FC
+                                    </p>
+                                    <p className='mt-1 text-sm font-semibold text-ink'>
+                                      {session.hrTarget}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className='mt-3 rounded-lg border border-black/10 bg-black/[0.02] p-2.5'>
+                                  <p className='text-[10px] uppercase tracking-wide text-muted'>
+                                    Objectif seance
+                                  </p>
+                                  <p className='mt-1 text-sm leading-relaxed text-ink'>
+                                    {session.objective}
+                                  </p>
+                                  <p className='mt-1 text-xs text-muted'>
+                                    Allure cible: {session.paceTarget}
+                                  </p>
+                                </div>
+
+                                <details className='mt-3 rounded-lg border border-black/10 bg-black/[0.02] p-2.5'>
+                                  <summary className='cursor-pointer text-xs font-semibold text-ink'>
+                                    Voir le detail des blocs (
+                                    {session.blocks.length})
+                                  </summary>
+                                  <div className='mt-2 space-y-2'>
+                                    {session.blocks.map((block, blockIndex) => (
+                                      <div
+                                        key={`plan-week-${week.weekIndex}-${session.sessionIndex}-block-${blockIndex + 1}`}
+                                        className='rounded-lg border border-black/10 bg-panel px-2.5 py-2'
+                                      >
+                                        <div className='flex flex-wrap items-center justify-between gap-2'>
+                                          <p className='text-xs font-semibold text-ink'>
+                                            {block.step}
+                                          </p>
+                                          <span className='rounded-full border border-black/15 bg-black/[0.03] px-2 py-0.5 text-[10px] font-semibold text-muted'>
+                                            {blockVolumeLabel(block)}
+                                          </span>
+                                        </div>
+                                        <p className='mt-1 text-xs text-muted'>
+                                          Allure {block.paceTarget}
+                                        </p>
+                                        <p className='mt-1 text-xs text-muted'>
+                                          FC {block.hrTarget}
+                                        </p>
+                                        {block.notes ?
+                                          <p className='mt-1 text-xs text-muted'>
+                                            {block.notes}
+                                          </p>
+                                        : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </details>
+
+                                <div className='mt-3 space-y-1 text-xs text-muted'>
+                                  <p>
+                                    <span className='font-semibold text-ink'>
+                                      Pourquoi:
+                                    </span>{' '}
+                                    {session.rationale}
+                                  </p>
+                                </div>
+
+                                {isEditing && !raceSession ?
+                                  <div className='mt-2 space-y-2 rounded-lg border border-black/10 bg-black/[0.03] p-2.5'>
+                                    <label className='grid gap-1 text-xs text-muted'>
+                                      Ce qui ne va pas / ce que tu veux changer
+                                      <textarea
+                                        className={textareaClass}
+                                        value={sessionAdaptRequest}
+                                        onChange={(event) =>
+                                          setSessionAdaptRequest(
+                                            event.target.value,
+                                          )
+                                        }
+                                        placeholder='Ex: trop intense apres la sortie longue, je veux une variante plus progressive avec fractionnes courts.'
+                                      />
+                                    </label>
+                                    <div className='flex flex-wrap gap-2'>
+                                      <button
+                                        className={primaryButtonClass}
+                                        type='button'
+                                        disabled={isAdapting}
+                                        onClick={() => {
+                                          void runSessionAdaptation(
+                                            week.weekIndex,
+                                            session.sessionIndex,
+                                          );
+                                        }}
+                                      >
+                                        {isAdapting ?
+                                          'Adaptation IA...'
+                                        : 'Valider adaptation'}
+                                      </button>
+                                      <button
+                                        className={secondaryButtonCompactClass}
+                                        type='button'
+                                        disabled={isAdapting}
+                                        onClick={() => {
+                                          setEditingSessionKey(null);
+                                          setSessionAdaptRequest('');
+                                        }}
+                                      >
+                                        Annuler
+                                      </button>
+                                    </div>
+                                  </div>
+                                : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
                 }
               </>
             : null}

@@ -45,6 +45,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(8),
   JWT_TTL: z.string().default('12h'),
+  ADMIN_EMAILS: z.string().default('hub+stravhat@engueranr.com'),
   AUDIT_LOG_KEY: z.string().min(16),
   AUTH_PASSWORD_PEPPER: z.string().min(16),
   STRAVA_CREDENTIALS_ENCRYPTION_KEY: z.string().min(43),

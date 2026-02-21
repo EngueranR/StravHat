@@ -1,6 +1,21 @@
+export interface SubscriptionLimits {
+  stravaImportsPerDay: number;
+  aiRequestsPerDay: number;
+  trainingPlansPerWindow: number;
+  trainingPlanWindow: "day" | "week";
+}
+
+export interface SubscriptionInfo {
+  tier: "FREE" | "SUPPORTER";
+  name: string;
+  tagline: string;
+  limits: SubscriptionLimits;
+}
+
 export interface User {
   id: string;
   email: string | null;
+  isAdmin?: boolean;
   isApproved?: boolean;
   stravaAthleteId: number | null;
   hrMax: number;
@@ -14,6 +29,8 @@ export interface User {
   distanceUnit: "km" | "mi";
   elevationUnit: "m" | "ft";
   cadenceUnit: "rpm" | "ppm" | "spm";
+  subscriptionTier?: "FREE" | "SUPPORTER";
+  subscription?: SubscriptionInfo;
   createdAt: string;
   updatedAt: string;
   connectedToStrava?: boolean;

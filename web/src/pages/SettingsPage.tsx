@@ -5,7 +5,13 @@ import { Card } from "../components/Card";
 import { MobileTabs } from "../components/MobileTabs";
 import { PageHeader } from "../components/PageHeader";
 import { SectionHeader } from "../components/SectionHeader";
-import { dangerButtonClass, inputClass, primaryButtonClass, selectClass } from "../components/ui";
+import {
+  dangerButtonClass,
+  inputClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+  selectClass,
+} from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 
@@ -60,10 +66,24 @@ export function SettingsPage() {
   const [elevationUnit, setElevationUnit] = useState<User["elevationUnit"]>("m");
   const [cadenceUnit, setCadenceUnit] = useState<User["cadenceUnit"]>("rpm");
   const [status, setStatus] = useState<string | null>(null);
+  const [showRavitoModal, setShowRavitoModal] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<SectionKey, boolean>>({
     preferences: false,
     dangerZone: false,
   });
+  const paypalRavitoUrl = (import.meta.env.VITE_PAYPAL_RAVITO_URL ?? "").trim();
+  const planTier = user?.subscription?.tier ?? user?.subscriptionTier ?? "FREE";
+  const planName =
+    user?.subscription?.name ??
+    (planTier === "SUPPORTER" ? "Ravito" : "Gratuit");
+  const planLimits = user?.subscription?.limits ?? {
+    stravaImportsPerDay: planTier === "SUPPORTER" ? 5 : 1,
+    aiRequestsPerDay: planTier === "SUPPORTER" ? 20 : 5,
+    trainingPlansPerWindow: 1,
+    trainingPlanWindow: (planTier === "SUPPORTER" ? "day" : "week") as
+      | "day"
+      | "week",
+  };
 
   useEffect(() => {
     if (!user) {
@@ -202,6 +222,59 @@ export function SettingsPage() {
             <p className="text-xs text-muted">Section repliee.</p>
           ) : (
             <>
+              <div className="mb-4 rounded-xl border border-black/10 bg-black/[0.03] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted">Plan actuel</p>
+                    <p className="text-lg font-semibold">{planName}</p>
+                    <p className="text-xs text-muted">
+                      {user?.subscription?.tagline ??
+                        "Le plan est gere en base de donnees par le gestionnaire."}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      planTier === "SUPPORTER" ?
+                        "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border border-black/15 bg-white text-ink"
+                    }`}
+                  >
+                    {planTier === "SUPPORTER" ? "Mode Ravito" : "Mode Gratuit"}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-3">
+                  <p>
+                    Import Strava:{" "}
+                    <strong>
+                      {planLimits.stravaImportsPerDay}/jour
+                    </strong>
+                  </p>
+                  <p>
+                    Requetes IA:{" "}
+                    <strong>
+                      {planLimits.aiRequestsPerDay}/jour
+                    </strong>
+                  </p>
+                  <p>
+                    Plans entrainement:{" "}
+                    <strong>
+                      {planLimits.trainingPlansPerWindow}/
+                      {planLimits.trainingPlanWindow === "day" ?
+                        "jour"
+                      : "semaine"}
+                    </strong>
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className={secondaryButtonClass}
+                    onClick={() => setShowRavitoModal(true)}
+                    type="button"
+                  >
+                    Payer un ravito
+                  </button>
+                </div>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-xs text-muted">
               HRmax
@@ -397,6 +470,58 @@ export function SettingsPage() {
         </Card> : null}
       </div>
       {status ? <p className="mt-4 text-sm text-muted">{status}</p> : null}
+      {showRavitoModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setShowRavitoModal(false)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-black/10 bg-white p-4 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Payer un ravito"
+          >
+            <p className="text-sm font-semibold text-ink">Payer un ravito</p>
+            <p className="mt-2 text-sm text-muted">
+              Montant libre via PayPal. Une fois confirme, le gestionnaire peut
+              activer ton mode Ravito en base.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setShowRavitoModal(false)}
+                type="button"
+              >
+                Fermer
+              </button>
+              <a
+                className={primaryButtonClass}
+                href={paypalRavitoUrl || "#"}
+                onClick={(event) => {
+                  if (!paypalRavitoUrl) {
+                    event.preventDefault();
+                    setStatus(
+                      "Lien PayPal non configure. Ajoute VITE_PAYPAL_RAVITO_URL.",
+                    );
+                  }
+                }}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Aller sur PayPal
+              </a>
+            </div>
+            {!paypalRavitoUrl ? (
+              <p className="mt-3 text-xs text-amber-700">
+                Lien PayPal manquant: configure{" "}
+                <code>VITE_PAYPAL_RAVITO_URL</code>.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

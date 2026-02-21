@@ -3,8 +3,8 @@ import { AppLayout } from "./layouts/AppLayout";
 import { useAuth } from "./contexts/AuthContext";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { ActivityDetailPage } from "./pages/ActivityDetailPage";
+import { AdminPage } from "./pages/AdminPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
-import { CorrelationBuilderPage } from "./pages/CorrelationBuilderPage";
 import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
 import { LandingPage } from "./pages/LandingPage";
@@ -26,6 +26,10 @@ export function App() {
               <Route element={<StravaConnectPage />} path="/connect-strava" />
             </Route>
 
+            <Route element={<AdminOnlyRoutes />}>
+              <Route element={<AdminPage />} path="/admin" />
+            </Route>
+
             <Route element={<StravaLinkedRoutes />}>
               <Route element={<SettingsPage />} path="/settings" />
               <Route element={<ImportPage />} path="/import" />
@@ -34,7 +38,7 @@ export function App() {
               <Route element={<Navigate replace to="/analytics" />} path="/dashboard" />
               <Route element={<AnalyticsPage />} path="/analytics" />
               <Route element={<TrainingPlanPage />} path="/training-plan" />
-              <Route element={<CorrelationBuilderPage />} path="/correlations" />
+              <Route element={<Navigate replace to="/analytics" />} path="/correlations" />
               <Route element={<ExportPage />} path="/export" />
             </Route>
           </Route>
@@ -60,7 +64,15 @@ function RootRedirect() {
     return <Navigate replace to="/login" />;
   }
 
-  return <Navigate replace to={user?.connectedToStrava ? "/analytics" : "/connect-strava"} />;
+  if (user?.connectedToStrava) {
+    return <Navigate replace to="/analytics" />;
+  }
+
+  if (user?.isAdmin) {
+    return <Navigate replace to="/admin" />;
+  }
+
+  return <Navigate replace to="/connect-strava" />;
 }
 
 function ProtectedRoutes() {
@@ -100,6 +112,20 @@ function StravaLinkedRoutes() {
 
   if (!user?.connectedToStrava) {
     return <Navigate replace to="/connect-strava" />;
+  }
+
+  return <Outlet />;
+}
+
+function AdminOnlyRoutes() {
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+  }
+
+  if (!user?.isAdmin) {
+    return <Navigate replace to={user?.connectedToStrava ? "/analytics" : "/connect-strava"} />;
   }
 
   return <Outlet />;

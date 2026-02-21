@@ -86,7 +86,13 @@ type SectionKey =
   | 'analysis';
 type CorrelationMobileTab = 'selection' | 'scatter' | 'matrix' | 'analysis';
 
-export function CorrelationBuilderPage() {
+interface CorrelationBuilderPageProps {
+  embedded?: boolean;
+}
+
+export function CorrelationBuilderPage({
+  embedded = false,
+}: CorrelationBuilderPageProps) {
   const { token, user } = useAuth();
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [mobileTab, setMobileTab] = useState<CorrelationMobileTab>('selection');
@@ -842,10 +848,12 @@ export function CorrelationBuilderPage() {
 
   return (
     <div>
-      <PageHeader
-        description='Selectionne des activites, puis clique sur les metriques a correler. Aucun champ manuel.'
-        title='Correlation Builder'
-      />
+      {!embedded ? (
+        <PageHeader
+          description='Selectionne des activites, puis clique sur les metriques a correler. Aucun champ manuel.'
+          title='Correlation Builder'
+        />
+      ) : null}
       {isMobile ?
         <MobileTabs
           activeKey={mobileTab}

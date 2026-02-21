@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const fullLinks = [
+const baseLinks = [
   { to: '/import', label: 'Import Center' },
   { to: '/activities', label: 'Activities' },
   { to: '/analytics', label: 'Analytics Lab' },
   { to: '/training-plan', label: 'Training Plan' },
-  { to: '/correlations', label: 'Correlation Builder' },
   { to: '/export', label: 'Export CSV' },
   { to: '/settings', label: 'Settings' },
 ];
@@ -17,6 +16,10 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const isStravaConnected = !!user?.connectedToStrava;
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const fullLinks = useMemo(
+    () => (user?.isAdmin ? [...baseLinks, { to: '/admin', label: 'Administration' }] : baseLinks),
+    [user?.isAdmin],
+  );
 
   useEffect(() => {
     setMobileSheetOpen(false);
@@ -41,6 +44,16 @@ export function AppLayout() {
               Logout
             </button>
           </header>
+          {user?.isAdmin ? (
+            <div className='mb-4'>
+              <Link
+                className='inline-flex h-9 items-center justify-center rounded-lg border border-black/20 px-3 text-xs hover:bg-black/5'
+                to='/admin'
+              >
+                Administration
+              </Link>
+            </div>
+          ) : null}
           <main className='min-w-0 space-y-6 overflow-x-hidden'>
             <Outlet />
           </main>

@@ -3,7 +3,9 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { env } from "../config.js";
 import { prisma } from "../db.js";
+import { isConfiguredAdminEmail } from "../services/adminPolicy.js";
 import { logSecurityEvent } from "../services/securityAudit.js";
+import { getPlanLimits, planDisplayName, planTagline } from "../services/subscription.js";
 import {
   exchangeCodeForToken,
   MissingStravaCredentialsError,
@@ -48,6 +50,7 @@ const startQuerySchema = z.object({
 const publicUserSelect = {
   id: true,
   email: true,
+  isAdmin: true,
   stravaAthleteId: true,
   hrMax: true,
   age: true,
@@ -60,6 +63,7 @@ const publicUserSelect = {
   distanceUnit: true,
   elevationUnit: true,
   cadenceUnit: true,
+  subscriptionTier: true,
   createdAt: true,
   updatedAt: true,
   stravaClientIdEnc: true,
@@ -80,6 +84,7 @@ function mapUser(user: PublicUserRecord) {
   return {
     id: user.id,
     email: user.email,
+    isAdmin: user.isAdmin,
     stravaAthleteId: user.stravaAthleteId,
     hrMax: user.hrMax,
     age: user.age,
@@ -92,6 +97,13 @@ function mapUser(user: PublicUserRecord) {
     distanceUnit: user.distanceUnit,
     elevationUnit: user.elevationUnit,
     cadenceUnit: user.cadenceUnit,
+    subscriptionTier: user.subscriptionTier,
+    subscription: {
+      tier: user.subscriptionTier,
+      name: planDisplayName(user.subscriptionTier),
+      tagline: planTagline(user.subscriptionTier),
+      limits: getPlanLimits(user.subscriptionTier),
+    },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     connectedToStrava: !!user.token,
@@ -139,6 +151,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const email = normalizeEmail(body.email);
+    const shouldBeAdmin = isConfiguredAdminEmail(email);
     const policyError = passwordPolicyError(body.password);
 
     if (policyError) {
@@ -161,7 +174,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         data: {
           email,
           passwordHash,
-          isApproved: false,
+          isApproved: shouldBeAdmin,
+          isAdmin: shouldBeAdmin,
         },
       });
     } catch (error) {
@@ -181,6 +195,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         emailDomain: email.split("@")[1] ?? null,
       },
     });
+
+    if (created && shouldBeAdmin) {
+      return reply.code(201).send({
+        message: "Compte administrateur cree.",
+        requiresApproval: false,
+      });
+    }
 
     return reply.code(201).send({
       message: "Compte cree. En attente de validation par le gestionnaire.",
@@ -215,7 +236,9 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       select: {
         id: true,
         passwordHash: true,
+        isAdmin: true,
         isApproved: true,
+        bannedAt: true,
         failedLoginAttempts: true,
         lockedUntil: true,
         tokenVersion: true,
@@ -278,9 +301,41 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(401).send({ message: "Identifiants invalides." });
     }
 
-    if (!account.isApproved) {
+    let resolvedAccount = account;
+    if (isConfiguredAdminEmail(email) && (!resolvedAccount.isAdmin || !resolvedAccount.isApproved)) {
+      resolvedAccount = await prisma.user.update({
+        where: { id: resolvedAccount.id },
+        data: {
+          isAdmin: true,
+          isApproved: true,
+        },
+        select: {
+          id: true,
+          passwordHash: true,
+          isAdmin: true,
+          isApproved: true,
+          bannedAt: true,
+          failedLoginAttempts: true,
+          lockedUntil: true,
+          tokenVersion: true,
+        },
+      });
+    }
+
+    if (resolvedAccount.bannedAt) {
+      await logSecurityEvent({
+        eventType: "auth.login.banned_account",
+        success: false,
+        userId: resolvedAccount.id,
+        ip: request.ip,
+      });
+      await authDelay();
+      return reply.code(403).send({ message: "Compte suspendu par un administrateur." });
+    }
+
+    if (!resolvedAccount.isApproved) {
       await prisma.user.update({
-        where: { id: account.id },
+        where: { id: resolvedAccount.id },
         data: {
           failedLoginAttempts: 0,
           lockedUntil: null,
@@ -289,7 +344,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       await logSecurityEvent({
         eventType: "auth.login.not_approved",
         success: false,
-        userId: account.id,
+        userId: resolvedAccount.id,
         ip: request.ip,
       });
       return reply.code(403).send({
@@ -299,7 +354,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     await prisma.user.update({
-      where: { id: account.id },
+      where: { id: resolvedAccount.id },
       data: {
         failedLoginAttempts: 0,
         lockedUntil: null,
@@ -310,21 +365,21 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     await logSecurityEvent({
       eventType: "auth.login.success",
       success: true,
-      userId: account.id,
+      userId: resolvedAccount.id,
       ip: request.ip,
     });
 
     const jwt = await app.jwt.sign(
       {
-        sub: account.id,
-        v: account.tokenVersion,
+        sub: resolvedAccount.id,
+        v: resolvedAccount.tokenVersion,
       },
       {
         expiresIn: env.JWT_TTL,
       },
     );
 
-    const user = await loadPublicUser(prisma, account.id);
+    const user = await loadPublicUser(prisma, resolvedAccount.id);
 
     return {
       jwt,

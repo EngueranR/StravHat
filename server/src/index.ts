@@ -75,6 +75,8 @@ app.decorate("authenticate", async (request, reply) => {
       },
       select: {
         id: true,
+        isAdmin: true,
+        bannedAt: true,
         isApproved: true,
         tokenVersion: true,
       },
@@ -90,11 +92,16 @@ app.decorate("authenticate", async (request, reply) => {
         .send({ message: "Compte non valide par le gestionnaire." });
     }
 
+    if (user.bannedAt) {
+      return reply.code(403).send({ message: "Compte suspendu par un administrateur." });
+    }
+
     if (user.tokenVersion !== payload.v) {
       return reply.code(401).send({ message: "Unauthorized" });
     }
 
     request.userId = user.id;
+    request.userIsAdmin = user.isAdmin;
   } catch {
     return reply.code(401).send({ message: "Unauthorized" });
   }

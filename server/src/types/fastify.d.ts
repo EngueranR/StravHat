@@ -4,6 +4,7 @@ import "fastify";
 declare module "fastify" {
   interface FastifyRequest {
     userId: string;
+    userIsAdmin: boolean;
   }
 
   interface FastifyInstance {
