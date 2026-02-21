@@ -14,15 +14,11 @@ interface ImportResult {
 }
 
 export function ImportPage() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(false);
-  const [oauthError, setOauthError] = useState<string | null>(null);
-  const hasCustomStravaCredentials = !!user?.hasCustomStravaCredentials;
-  const connectedToStrava = !!user?.connectedToStrava;
 
   const launchImport = async () => {
     if (!token) {
@@ -42,33 +38,6 @@ export function ImportPage() {
       setError(err instanceof Error ? err.message : "Import impossible");
     } finally {
       setRunning(false);
-    }
-  };
-
-  const startStravaAuth = async () => {
-    if (!token) {
-      setOauthError("Session expiree. Reconnecte-toi.");
-      return;
-    }
-
-    if (!hasCustomStravaCredentials) {
-      setOauthError(
-        "Configure d'abord les credentials Strava (Client ID / Secret / Redirect URI).",
-      );
-      return;
-    }
-
-    setOauthLoading(true);
-    setOauthError(null);
-
-    try {
-      const response = await apiRequest<{ url: string }>("/auth/strava/start", {
-        token,
-      });
-      window.location.href = response.url;
-    } catch (err) {
-      setOauthError(err instanceof Error ? err.message : "Impossible de lancer OAuth Strava");
-      setOauthLoading(false);
     }
   };
 
@@ -92,35 +61,6 @@ export function ImportPage() {
         />
         {collapsed ? (
           <p className="text-xs text-muted">Section repliee.</p>
-        ) : !connectedToStrava ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted">
-              Ton compte Strava n'est pas encore connecte. L'import reste vide tant que
-              l'OAuth Strava n'est pas actif.
-            </p>
-
-            {!hasCustomStravaCredentials ? (
-              <p className="text-xs text-amber-700">
-                Credentials Strava non configures: complete d'abord la page Strava Credentials.
-              </p>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                className={primaryButtonClass}
-                disabled={oauthLoading || !hasCustomStravaCredentials}
-                onClick={startStravaAuth}
-                type="button"
-              >
-                {oauthLoading ? "Redirection..." : "Connecter Strava (OAuth)"}
-              </button>
-              <Link className={secondaryButtonClass} to="/strava-credentials">
-                Strava Credentials
-              </Link>
-            </div>
-
-            {oauthError ? <p className="text-sm text-red-700">{oauthError}</p> : null}
-          </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted">

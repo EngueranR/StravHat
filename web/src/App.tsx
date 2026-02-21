@@ -11,7 +11,6 @@ import { LandingPage } from "./pages/LandingPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { StravaConnectPage } from "./pages/StravaConnectPage";
-import { StravaCredentialsPage } from "./pages/StravaCredentialsPage";
 import { TrainingPlanPage } from "./pages/TrainingPlanPage";
 
 export function App() {
@@ -23,11 +22,12 @@ export function App() {
 
         <Route element={<ProtectedRoutes />}>
           <Route element={<AppLayout />}>
-            <Route element={<SettingsPage />} path="/settings" />
-            <Route element={<StravaCredentialsPage />} path="/strava-credentials" />
-            <Route element={<StravaConnectPage />} path="/connect-strava" />
+            <Route element={<StravaUnlinkedRoutes />}>
+              <Route element={<StravaConnectPage />} path="/connect-strava" />
+            </Route>
 
             <Route element={<StravaLinkedRoutes />}>
+              <Route element={<SettingsPage />} path="/settings" />
               <Route element={<ImportPage />} path="/import" />
               <Route element={<ActivitiesPage />} path="/activities" />
               <Route element={<ActivityDetailPage />} path="/activities/:id" />
@@ -72,6 +72,20 @@ function ProtectedRoutes() {
 
   if (!isAuthenticated) {
     return <Navigate replace to="/login" />;
+  }
+
+  return <Outlet />;
+}
+
+function StravaUnlinkedRoutes() {
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted">Chargement session...</div>;
+  }
+
+  if (user?.connectedToStrava) {
+    return <Navigate replace to="/analytics" />;
   }
 
   return <Outlet />;
