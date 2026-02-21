@@ -94,6 +94,43 @@ const matrixMobileShortLabelByValue: Record<string, string> = {
   charge: 'Charge',
 };
 
+const amateurFriendlyMetricValues = new Set([
+  'distance',
+  'movingTime',
+  'elevGain',
+  'avgSpeed',
+  'avgHR',
+  'cadence',
+  'charge',
+]);
+
+const quickScatterPresets = [
+  {
+    id: 'endurance',
+    label: 'Endurance',
+    description: 'Vitesse vs FC, colore par cadence',
+    xVar: 'avgSpeed',
+    yVar: 'avgHR',
+    colorVar: 'cadence',
+  },
+  {
+    id: 'volume',
+    label: 'Volume',
+    description: 'Distance vs temps, sans couleur',
+    xVar: 'distance',
+    yVar: 'movingTime',
+    colorVar: '',
+  },
+  {
+    id: 'denivele',
+    label: 'Denivele',
+    description: 'Distance vs D+',
+    xVar: 'distance',
+    yVar: 'elevGain',
+    colorVar: 'avgSpeed',
+  },
+];
+
 const graphAuditBaseQuestion =
   "Agis comme un expert en sciences du sport et analyste de performance de haut niveau. Analyse les données de cette section avec une rigueur mathématique et scientifique sourcé par des documents prouvé et des thèses avec une neutralité absolue. Ton objectif est de produire un audit de performance et un rapport détaillé sans aucune complaisance (zéro 'sugar-coating') compare mes métriques aux autres athlètes similaires.";
 
@@ -139,8 +176,8 @@ export function CorrelationBuilderPage({
     activitySelection: true,
     selectedActivities: true,
     scatter: false,
-    matrix: false,
-    analysis: false,
+    matrix: true,
+    analysis: true,
   });
   const [data, setData] = useState<CorrelationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +205,8 @@ export function CorrelationBuilderPage({
     'groundContactTime',
     'calories',
   ]);
+  const [showAdvancedScatterMetrics, setShowAdvancedScatterMetrics] =
+    useState(false);
 
   const selectedIdsQuery = useMemo(() => {
     return selectedIds.size > 0 ?
@@ -237,6 +276,21 @@ export function CorrelationBuilderPage({
   const distanceColumnLabel = `Distance (${distanceUnitLabel(unitPreferences.distanceUnit)})`;
   const formatDistanceFromMeters = (distanceMeters: number) =>
     convertDistanceKm(distanceMeters / 1000, unitPreferences.distanceUnit).toFixed(2);
+  const scatterMetrics = useMemo(() => {
+    if (showAdvancedScatterMetrics) {
+      return metricsWithUnit;
+    }
+
+    const selectedMetricValues = new Set(
+      [xVar, yVar, colorVar].filter(Boolean),
+    );
+
+    return metricsWithUnit.filter(
+      (metric) =>
+        amateurFriendlyMetricValues.has(metric.value) ||
+        selectedMetricValues.has(metric.value),
+    );
+  }, [metricsWithUnit, showAdvancedScatterMetrics, xVar, yVar, colorVar]);
   const resolvedMatrixVars = useMemo(
     () => (matrixVars.length > 0 ? matrixVars : (data?.vars ?? [])),
     [matrixVars, data],
@@ -1387,47 +1441,103 @@ export function CorrelationBuilderPage({
         {collapsedSections.scatter ?
           <p className='text-xs text-muted'>Section repliee.</p>
         : <>
-            <div className='mb-3 grid gap-2 lg:grid-cols-2'>
-              <div>
-                <p className='text-xs uppercase tracking-wide text-muted'>
-                  Methode (scatter)
-                </p>
-                <div className='mt-2 flex flex-wrap gap-2'>
-                  {(['pearson', 'spearman'] as const).map((value) => (
+            <div className='mb-3 rounded-xl border border-black/10 bg-black/[0.03] p-3'>
+              <p className='text-xs font-semibold uppercase tracking-wide text-muted'>
+                Mode simple
+              </p>
+              <p className='mt-1 text-xs text-muted'>
+                Choisis un profil, puis ajuste seulement si besoin.
+              </p>
+              <div className='mt-2 flex flex-wrap gap-2'>
+                {quickScatterPresets.map((preset) => {
+                  const active =
+                    xVar === preset.xVar &&
+                    yVar === preset.yVar &&
+                    colorVar === preset.colorVar;
+                  return (
                     <button
-                      key={value}
+                      key={preset.id}
                       type='button'
-                      className={`rounded-lg border px-3 py-1 text-xs ${method === value ? 'border-ink bg-ink text-white' : 'border-black/20 hover:bg-black/5'}`}
-                      onClick={() => setMethod(value)}
+                      className={`rounded-lg border px-3 py-1 text-xs ${active ? 'border-ink bg-ink text-white' : 'border-black/20 hover:bg-black/5'}`}
+                      onClick={() => {
+                        setXVar(preset.xVar);
+                        setYVar(preset.yVar);
+                        setColorVar(preset.colorVar);
+                      }}
+                      title={preset.description}
                     >
-                      {value}
+                      {preset.label}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-              <div>
-                <p className='text-xs uppercase tracking-wide text-muted'>
-                  Trendline
+              <div className='mt-2 flex flex-wrap items-center gap-2'>
+                <button
+                  type='button'
+                  className='rounded-lg border border-black/20 px-3 py-1 text-xs hover:bg-black/5'
+                  onClick={() =>
+                    setShowAdvancedScatterMetrics((prev) => !prev)
+                  }
+                >
+                  {showAdvancedScatterMetrics ?
+                    'Masquer les metriques avancees'
+                  : 'Voir plus de metriques'}
+                </button>
+                <p className='text-[11px] text-muted'>
+                  Conseille pour debuter: distance, temps, vitesse, FC.
                 </p>
-                <div className='mt-2 flex flex-wrap items-center gap-2 text-xs text-muted'>
-                  <label className='flex items-center gap-2'>
-                    <input
-                      type='checkbox'
-                      checked={showTrend}
-                      onChange={(event) => setShowTrend(event.target.checked)}
-                    />
-                    Trendline
-                  </label>
-                </div>
               </div>
             </div>
+            <details className='mb-3 rounded-xl border border-black/10 p-3'>
+              <summary className='cursor-pointer text-xs font-medium text-muted'>
+                Options avancees (methode et trendline)
+              </summary>
+              <div className='mt-3 grid gap-2 lg:grid-cols-2'>
+                <div>
+                  <p className='text-xs uppercase tracking-wide text-muted'>
+                    Methode de correlation
+                  </p>
+                  <div className='mt-2 flex flex-wrap gap-2'>
+                    {(['pearson', 'spearman'] as const).map((value) => (
+                      <button
+                        key={value}
+                        type='button'
+                        className={`rounded-lg border px-3 py-1 text-xs ${method === value ? 'border-ink bg-ink text-white' : 'border-black/20 hover:bg-black/5'}`}
+                        onClick={() => setMethod(value)}
+                      >
+                        {value === 'pearson' ? 'Lineaire' : 'Classement'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className='mt-2 text-[11px] text-muted'>
+                    Lineaire = simple. Classement = plus robuste si tes donnees
+                    ont des extremes.
+                  </p>
+                </div>
+                <div>
+                  <p className='text-xs uppercase tracking-wide text-muted'>
+                    Ligne de tendance
+                  </p>
+                  <div className='mt-2 flex flex-wrap items-center gap-2 text-xs text-muted'>
+                    <label className='flex items-center gap-2'>
+                      <input
+                        type='checkbox'
+                        checked={showTrend}
+                        onChange={(event) => setShowTrend(event.target.checked)}
+                      />
+                      Afficher la tendance
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </details>
             <div className='mb-3 grid gap-2 lg:grid-cols-3'>
               <div>
                 <p className='text-xs uppercase tracking-wide text-muted'>
                   Axe X
                 </p>
                 <div className='mt-2 flex flex-wrap gap-2'>
-                  {metricsWithUnit.map((metric) => (
+                  {scatterMetrics.map((metric) => (
                     <button
                       key={`x-${metric.value}`}
                       type='button'
@@ -1444,7 +1554,7 @@ export function CorrelationBuilderPage({
                   Axe Y
                 </p>
                 <div className='mt-2 flex flex-wrap gap-2'>
-                  {metricsWithUnit.map((metric) => (
+                  {scatterMetrics.map((metric) => (
                     <button
                       key={`y-${metric.value}`}
                       type='button'
@@ -1468,7 +1578,7 @@ export function CorrelationBuilderPage({
                   >
                     Aucune couleur
                   </button>
-                  {metricsWithUnit.map((metric) => (
+                  {scatterMetrics.map((metric) => (
                     <button
                       key={`c-${metric.value}`}
                       type='button'
@@ -1601,8 +1711,8 @@ export function CorrelationBuilderPage({
 
       <Card>
         <SectionHeader
-          title='4. Matrice des correlations'
-          subtitle='Vue globale des relations entre metriques'
+          title='4. Matrice des correlations (avance)'
+          subtitle='Vue experte des relations entre metriques'
           infoHint={{
             title: 'Lecture',
             description:
@@ -1721,7 +1831,7 @@ export function CorrelationBuilderPage({
 
       <Card>
         <SectionHeader
-          title='5. Analyse'
+          title='5. Analyse (avancee)'
           subtitle='Resume automatique de la correlation'
           infoHint={{
             title: 'Interpretation',

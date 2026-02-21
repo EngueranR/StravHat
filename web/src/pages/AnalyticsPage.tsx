@@ -1290,10 +1290,117 @@ function ReliabilityGauge({ score }: { score: number }) {
   );
 }
 
+function AnalyticsBottomIcon({
+  icon,
+  active,
+}: {
+  icon: AnalyticsBottomTab;
+  active: boolean;
+}) {
+  const className = `h-4 w-4 ${active ? 'text-white' : 'text-ink'}`;
+
+  switch (icon) {
+    case 'performance':
+      return (
+        <svg
+          aria-hidden='true'
+          className={className}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M4 19h16M6 15l4-4 3 3 5-6'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'health':
+      return (
+        <svg
+          aria-hidden='true'
+          className={className}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M12 20s-6.5-4.2-8.2-7.3C2.5 10.2 3.5 7 6.6 7c1.9 0 3 .9 3.8 2 0 0 1.3-2 3.8-2 3 0 4.1 3.2 2.8 5.7C18.5 15.8 12 20 12 20Z'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'forecast':
+      return (
+        <svg
+          aria-hidden='true'
+          className={className}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M4 18h16M7 14l3-3 2 2 5-5'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'progress':
+      return (
+        <svg
+          aria-hidden='true'
+          className={className}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M5 19V9m7 10V5m7 14v-7'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'correlations':
+      return (
+        <svg
+          aria-hidden='true'
+          className={className}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M6 8a2 2 0 1 0 0-.01ZM18 8a2 2 0 1 0 0-.01ZM12 18a2 2 0 1 0 0-.01Z'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+          <path
+            d='M7.7 9.1 10.5 16m5.8-6.9L13.5 16'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+  }
+}
+
 type AnalyticsView = 'lab' | 'historical' | 'correlations';
+type AnalyticsBottomTab =
+  | 'performance'
+  | 'health'
+  | 'forecast'
+  | 'progress'
+  | 'correlations';
 type HeartRateZoneBasis = 'avg' | 'max';
-type LabTheme = 'health' | 'forecast' | 'load' | 'performance' | 'profile';
-type HistoricalTheme = 'insights' | 'advanced' | 'report';
 type AnalyticsSectionKey =
   | 'globalFilters'
   | 'labToday'
@@ -1317,20 +1424,17 @@ type AnalyticsSectionKey =
 type HistoricalPreset = 'strict' | 'balanced' | 'wide';
 type HistoricalMainMetric = 'speedKmh' | 'hr' | 'cadence' | 'intensityProxy';
 
-const labSectionsByTheme: Record<LabTheme, AnalyticsSectionKey[]> = {
-  health: ['labToday', 'labSkillsRadar', 'labHrZones'],
-  forecast: ['labReferenceTimes'],
-  load: ['labLoad', 'labHeatmap', 'labPivot'],
-  performance: ['labTrends', 'labDistributions'],
-  profile: ['labProfile'],
-};
-
-const historicalSectionsByTheme: Record<HistoricalTheme, AnalyticsSectionKey[]> =
-  {
-    insights: ['histSelection', 'histSynthesis', 'histSkills', 'histSimple'],
-    advanced: ['histAdvancedMap', 'histAdvancedEvolution'],
-    report: ['histNarrative', 'histSessions'],
-  };
+const labSectionsHealth: AnalyticsSectionKey[] = [
+  'labToday',
+  'labSkillsRadar',
+  'labHrZones',
+];
+const labSectionsLoad: AnalyticsSectionKey[] = ['labLoad', 'labHeatmap', 'labPivot'];
+const labSectionsForecast: AnalyticsSectionKey[] = ['labReferenceTimes'];
+const labSectionsPerformance: AnalyticsSectionKey[] = [
+  'labTrends',
+  'labDistributions',
+];
 
 type HistoricalFeature = 'speedKmh' | 'hr' | 'cadence' | 'durationMin';
 
@@ -1962,10 +2066,30 @@ export function AnalyticsPage() {
     maxKilojoules: '',
   });
 
-  const [activeView, setActiveView] = useState<AnalyticsView>('lab');
-  const [labTheme, setLabTheme] = useState<LabTheme>('health');
-  const [historicalTheme, setHistoricalTheme] =
-    useState<HistoricalTheme>('insights');
+  const [activeBottomTab, setActiveBottomTab] =
+    useState<AnalyticsBottomTab>('performance');
+  const [analyticsSubmenuOpen, setAnalyticsSubmenuOpen] = useState(true);
+  const activeView: AnalyticsView =
+    activeBottomTab === 'progress' ? 'historical'
+    : activeBottomTab === 'correlations' ? 'correlations'
+    : 'lab';
+  const analyticsBottomItems = useMemo(
+    () =>
+      [
+        {
+          key: 'performance',
+          label: language === 'fr' ? 'Performances' : 'Performance',
+        },
+        { key: 'health', label: language === 'fr' ? 'Sante' : 'Health' },
+        { key: 'forecast', label: language === 'fr' ? 'Prono.' : 'Forecast' },
+        { key: 'progress', label: language === 'fr' ? 'Progres' : 'Progress' },
+        {
+          key: 'correlations',
+          label: language === 'fr' ? 'Correlation' : 'Correlations',
+        },
+      ] as Array<{ key: AnalyticsBottomTab; label: string }>,
+    [language],
+  );
   const [trendBucket, setTrendBucket] = useState('week');
   const distributionBins = 100;
   const [pivotRow, setPivotRow] = useState('type');
@@ -2042,11 +2166,23 @@ export function AnalyticsPage() {
   const toggleSection = (section: AnalyticsSectionKey) => {
     setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
+  const labVisibleSectionSet = useMemo(() => {
+    if (activeBottomTab === 'performance') {
+      return new Set<AnalyticsSectionKey>(labSectionsPerformance);
+    }
+    if (activeBottomTab === 'forecast') {
+      return new Set<AnalyticsSectionKey>(labSectionsForecast);
+    }
+    if (activeBottomTab === 'health') {
+      return new Set<AnalyticsSectionKey>([...labSectionsHealth, ...labSectionsLoad]);
+    }
+    return new Set<AnalyticsSectionKey>();
+  }, [activeBottomTab]);
+
   const showLabSection = (section: AnalyticsSectionKey) =>
-    activeView === 'lab' && labSectionsByTheme[labTheme].includes(section);
-  const showHistoricalSection = (section: AnalyticsSectionKey) =>
-    activeView === 'historical' &&
-    historicalSectionsByTheme[historicalTheme].includes(section);
+    activeView === 'lab' && labVisibleSectionSet.has(section);
+  const showHistoricalSection = (_section: AnalyticsSectionKey) =>
+    activeView === 'historical';
 
   const filterDateMin = useMemo(() => startOfCurrentYearInputValue(), []);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
@@ -4806,94 +4942,20 @@ export function AnalyticsPage() {
   });
 
   return (
-    <div className='min-w-0 overflow-x-clip'>
+    <div
+      className={`min-w-0 overflow-x-clip ${
+        analyticsSubmenuOpen ? 'pb-48 lg:pb-36' : 'pb-36 lg:pb-24'
+      }`}
+    >
       <PageHeader
         description={t('pages.analytics.description')}
         title={t('pages.analytics.title')}
       />
 
-      <div className='mb-4 rounded-xl border border-black/15 bg-black/[0.03] p-3'>
-        <div className='flex flex-wrap items-center gap-2'>
-          <p className='text-xs font-semibold uppercase tracking-wide text-muted'>
-            {language === 'fr' ? 'Vue' : 'View'}
-          </p>
-          <select
-            className={`${selectClass} h-9 max-w-[240px] text-sm`}
-            onChange={(event) => setActiveView(event.target.value as AnalyticsView)}
-            value={activeView}
-          >
-            <option value='lab'>{t('analytics.view.analysis')}</option>
-            <option value='historical'>{t('analytics.view.progress')}</option>
-            <option value='correlations'>{t('analytics.view.correlations')}</option>
-          </select>
-          <p className='text-xs text-muted'>
-            {language === 'fr' ?
-              'Une seule vue active pour eviter le double menu.'
-            : 'One active view at a time to avoid stacked menus.'}
-          </p>
-        </div>
-      </div>
-
-      {activeView === 'lab' ? (
-        <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
-          {(
-            [
-              { key: 'health', label: 'Sante' },
-              { key: 'forecast', label: 'Pronostic' },
-              { key: 'load', label: 'Charge' },
-              { key: 'performance', label: 'Performance' },
-              { key: 'profile', label: 'Profil' },
-            ] as Array<{ key: LabTheme; label: string }>
-          ).map((theme) => (
-            <button
-              key={theme.key}
-              className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs ${labTheme === theme.key ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
-              onClick={() => setLabTheme(theme.key)}
-              type='button'
-            >
-              {theme.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {activeView === 'historical' ? (
-        <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
-          {(
-            [
-              { key: 'insights', label: 'Configuration + signaux' },
-              { key: 'advanced', label: 'Avance' },
-              { key: 'report', label: 'Rapport' },
-            ] as Array<{ key: HistoricalTheme; label: string }>
-          ).map((theme) => (
-            <button
-              key={theme.key}
-              className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs ${historicalTheme === theme.key ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
-              onClick={() => setHistoricalTheme(theme.key)}
-              type='button'
-            >
-              {theme.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {activeView !== 'correlations' ? <Card>
         <SectionHeader
           title='Filtres analytiques'
-          subtitle="Recherche, periode, type d'activite et contraintes avancees."
-          aiInsight={buildAiInsight(
-            'globalFilters',
-            'Filtres analytiques',
-            "Recherche, periode, type d'activite et contraintes avancees.",
-            {
-              activeView,
-              trendBucket,
-              distributionBins,
-              pivotRow,
-              fullFilters: effectiveFilters,
-            },
-          )}
+          subtitle="Periode, type d'activite et contraintes sportives."
           collapsed={collapsedSections.globalFilters}
           onToggleCollapse={() => toggleSection('globalFilters')}
         />
@@ -4901,19 +4963,8 @@ export function AnalyticsPage() {
           <p className='text-[11px] text-muted/80'>Filtres masques.</p>
         : <>
             <div
-              className={`grid gap-3 ${activeView === 'lab' ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
+              className={`grid gap-3 ${activeView === 'lab' ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-3'}`}
             >
-              <label className='grid content-start gap-1 text-xs text-muted'>
-                <span className='min-h-[1rem]'>Recherche activite</span>
-                <input
-                  className={inputClass}
-                  onChange={(event) =>
-                    setFilters((prev) => ({ ...prev, q: event.target.value }))
-                  }
-                  placeholder='Rechercher...'
-                  value={filters.q ?? ''}
-                />
-              </label>
               <label className='grid content-start gap-1 text-xs text-muted'>
                 <span className='min-h-[1rem]'>Date debut</span>
                 <input
@@ -4979,7 +5030,7 @@ export function AnalyticsPage() {
             </p>
             <details className='mt-3 rounded-lg border border-black/10 bg-black/[0.03] p-2.5'>
               <summary className='cursor-pointer text-[11px] uppercase tracking-wide text-muted'>
-                Plus de filtres
+                Filtres sportifs avances
               </summary>
               <div className='mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
                 <label className='grid gap-1 text-xs text-muted'>
@@ -5178,62 +5229,6 @@ export function AnalyticsPage() {
                     }
                   />
                 </label>
-                <label className='grid gap-1 text-xs text-muted'>
-                  Calories min (kcal)
-                  <input
-                    className={inputClass}
-                    placeholder='ex: 200'
-                    value={filters.minCalories ?? ''}
-                    onChange={(event) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        minCalories: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className='grid gap-1 text-xs text-muted'>
-                  Calories max (kcal)
-                  <input
-                    className={inputClass}
-                    placeholder='ex: 1500'
-                    value={filters.maxCalories ?? ''}
-                    onChange={(event) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        maxCalories: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className='grid gap-1 text-xs text-muted'>
-                  Energie min (kJ)
-                  <input
-                    className={inputClass}
-                    placeholder='ex: 200'
-                    value={filters.minKilojoules ?? ''}
-                    onChange={(event) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        minKilojoules: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className='grid gap-1 text-xs text-muted'>
-                  Energie max (kJ)
-                  <input
-                    className={inputClass}
-                    placeholder='ex: 3000'
-                    value={filters.maxKilojoules ?? ''}
-                    onChange={(event) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        maxKilojoules: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
               </div>
             </details>
           </>
@@ -5246,7 +5241,7 @@ export function AnalyticsPage() {
 
       {activeView === 'lab' ?
         <div className='mt-6 grid gap-6'>
-          {labTheme === 'health' && summaryData ?
+          {activeBottomTab === 'health' && summaryData ?
             <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-5'>
               <StatCard
                 label='Activites'
@@ -7348,6 +7343,71 @@ export function AnalyticsPage() {
         </div>
       : <CorrelationBuilderPage embedded />
       }
+
+      <div className='fixed inset-x-0 bottom-16 z-20 px-2 lg:bottom-4 lg:px-6'>
+        <div className='mx-auto max-w-[1400px]'>
+          <div className='rounded-2xl border border-black/15 bg-panel/95 shadow-panel backdrop-blur'>
+            <button
+              className='flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted'
+              onClick={() => setAnalyticsSubmenuOpen((prev) => !prev)}
+              type='button'
+            >
+              <span>
+                {language === 'fr' ? 'Menu analyse' : 'Analytics menu'}
+              </span>
+              <span
+                className={`inline-flex transition-transform duration-200 ${
+                  analyticsSubmenuOpen ? 'rotate-180' : 'rotate-0'
+                }`}
+              >
+                <svg
+                  aria-hidden='true'
+                  className='h-4 w-4'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='1.8'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    d='m6 9 6 6 6-6'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                  />
+                </svg>
+              </span>
+            </button>
+            <div
+              className={`overflow-hidden px-2 transition-all duration-300 ${
+                analyticsSubmenuOpen ?
+                  'max-h-28 pb-2 opacity-100'
+                : 'max-h-0 pb-0 opacity-0'
+              }`}
+            >
+              <div className='grid grid-cols-5 gap-1'>
+                {analyticsBottomItems.map((item) => {
+                  const active = activeBottomTab === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type='button'
+                      className={`inline-flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 transition ${
+                        active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
+                      }`}
+                      onClick={() => setActiveBottomTab(item.key)}
+                      title={item.label}
+                    >
+                      <AnalyticsBottomIcon active={active} icon={item.key} />
+                      <span className='block w-full truncate text-center text-[10px] font-medium leading-none'>
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {selectedActivity ?
         <ActivityModal
