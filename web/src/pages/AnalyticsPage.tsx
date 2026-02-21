@@ -1932,7 +1932,7 @@ function buildDistributionDiagnostics(
 }
 
 export function AnalyticsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { token, user } = useAuth();
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const unitPreferences = useMemo(() => resolveUnitPreferences(user), [user]);
@@ -4812,28 +4812,26 @@ export function AnalyticsPage() {
         title={t('pages.analytics.title')}
       />
 
-      <div className='mb-4 flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-black/15 bg-black/[0.03] p-1'>
-        <button
-          className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'lab' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
-          onClick={() => setActiveView('lab')}
-          type='button'
-        >
-          {t('analytics.view.analysis')}
-        </button>
-        <button
-          className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'historical' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
-          onClick={() => setActiveView('historical')}
-          type='button'
-        >
-          {t('analytics.view.progress')}
-        </button>
-        <button
-          className={`inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm ${activeView === 'correlations' ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'}`}
-          onClick={() => setActiveView('correlations')}
-          type='button'
-        >
-          {t('analytics.view.correlations')}
-        </button>
+      <div className='mb-4 rounded-xl border border-black/15 bg-black/[0.03] p-3'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <p className='text-xs font-semibold uppercase tracking-wide text-muted'>
+            {language === 'fr' ? 'Vue' : 'View'}
+          </p>
+          <select
+            className={`${selectClass} h-9 max-w-[240px] text-sm`}
+            onChange={(event) => setActiveView(event.target.value as AnalyticsView)}
+            value={activeView}
+          >
+            <option value='lab'>{t('analytics.view.analysis')}</option>
+            <option value='historical'>{t('analytics.view.progress')}</option>
+            <option value='correlations'>{t('analytics.view.correlations')}</option>
+          </select>
+          <p className='text-xs text-muted'>
+            {language === 'fr' ?
+              'Une seule vue active pour eviter le double menu.'
+            : 'One active view at a time to avoid stacked menus.'}
+          </p>
+        </div>
       </div>
 
       {activeView === 'lab' ? (

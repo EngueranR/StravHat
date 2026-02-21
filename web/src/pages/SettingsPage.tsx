@@ -732,13 +732,22 @@ export function SettingsPage() {
             />
             {collapsedSections.dangerZone ?
               <p className='text-xs text-muted'>Section repliee.</p>
-            : <button
-                className={dangerButtonClass}
-                onClick={deleteAccount}
-                type='button'
-              >
-                Supprimer mon compte
-              </button>
+            : <div className='flex flex-wrap gap-2'>
+                <button
+                  className={secondaryButtonClass}
+                  onClick={logout}
+                  type='button'
+                >
+                  {t('common.logout')}
+                </button>
+                <button
+                  className={dangerButtonClass}
+                  onClick={deleteAccount}
+                  type='button'
+                >
+                  Supprimer mon compte
+                </button>
+              </div>
             }
           </Card>
       </div>

@@ -1,24 +1,146 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import type { I18nMessageKey } from '../i18n/catalog';
 import { useI18n } from '../i18n/framework';
 import { useAuth } from '../contexts/AuthContext';
 
+type NavIconName =
+  | 'settings'
+  | 'activities'
+  | 'analytics'
+  | 'training'
+  | 'export'
+  | 'admin';
+
 type LinkDef = {
   to: string;
   labelKey: I18nMessageKey;
+  icon: NavIconName;
 };
 
 const setupLinkDefs: LinkDef[] = [
-  { to: '/settings', labelKey: 'nav.settings' },
-  { to: '/activities', labelKey: 'nav.activities' },
+  { to: '/settings', labelKey: 'nav.settings', icon: 'settings' },
+  { to: '/activities', labelKey: 'nav.activities', icon: 'activities' },
 ];
 
 const analysisLinkDefs: LinkDef[] = [
-  { to: '/analytics', labelKey: 'nav.analytics' },
-  { to: '/training-plan', labelKey: 'nav.trainingPlan' },
-  { to: '/export', labelKey: 'nav.exportCsv' },
+  { to: '/analytics', labelKey: 'nav.analytics', icon: 'analytics' },
+  { to: '/training-plan', labelKey: 'nav.trainingPlan', icon: 'training' },
+  { to: '/export', labelKey: 'nav.exportCsv', icon: 'export' },
 ];
+
+function isActivePath(pathname: string, to: string) {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+function NavIcon({ name, active }: { name: NavIconName; active: boolean }) {
+  const commonClass = `h-4 w-4 ${active ? 'text-white' : 'text-ink'}`;
+
+  switch (name) {
+    case 'settings':
+      return (
+        <svg
+          aria-hidden='true'
+          className={commonClass}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M12 3v2.5m0 13V21m9-9h-2.5M5.5 12H3m14.86-6.36-1.77 1.77M7.91 16.09l-1.77 1.77m0-12.22 1.77 1.77m8.18 8.18 1.77 1.77M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'activities':
+      return (
+        <svg
+          aria-hidden='true'
+          className={commonClass}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M4 6h16M4 12h16M4 18h16M7 6v12'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'analytics':
+      return (
+        <svg
+          aria-hidden='true'
+          className={commonClass}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M4 19h16M7 16v-5m5 5V7m5 9v-3'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'training':
+      return (
+        <svg
+          aria-hidden='true'
+          className={commonClass}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M6 4h10l2 2v14H6V4Zm4 3h5M9 11h6m-6 4h6'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'export':
+      return (
+        <svg
+          aria-hidden='true'
+          className={commonClass}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M12 4v10m0 0 4-4m-4 4-4-4M5 19h14'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+    case 'admin':
+      return (
+        <svg
+          aria-hidden='true'
+          className={commonClass}
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='1.8'
+          viewBox='0 0 24 24'
+        >
+          <path
+            d='M12 3 5 6v5c0 4.2 2.9 8.1 7 9 4.1-.9 7-4.8 7-9V6l-7-3Zm0 6v7m0 0-3-3m3 3 3-3'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+          />
+        </svg>
+      );
+  }
+}
 
 export function AppLayout() {
   const location = useLocation();
@@ -26,7 +148,6 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const isStravaConnected = !!user?.connectedToStrava;
   const hasImportedActivities = !!user?.hasImportedActivities;
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   const fullLinks = useMemo(() => {
     const links = [
@@ -35,40 +156,15 @@ export function AppLayout() {
     ].map((link) => ({
       to: link.to,
       label: t(link.labelKey),
+      icon: link.icon,
     }));
 
     if (user?.isAdmin) {
-      links.push({ to: '/admin', label: t('nav.admin') });
+      links.push({ to: '/admin', label: t('nav.admin'), icon: 'admin' });
     }
 
     return links;
   }, [hasImportedActivities, t, user?.isAdmin]);
-
-  const mobileQuickLinks = useMemo(() => {
-    return hasImportedActivities ?
-        [
-          { to: '/analytics', label: t('nav.analytics') },
-          { to: '/activities', label: t('nav.activities') },
-          { to: '/settings', label: t('nav.settings') },
-        ]
-      : [
-          { to: '/settings', label: t('nav.settings') },
-          { to: '/activities', label: t('nav.activities') },
-        ];
-  }, [hasImportedActivities, t]);
-
-  const mobileMoreLinks = useMemo(
-    () =>
-      fullLinks.filter(
-        (link) => !mobileQuickLinks.some((quickLink) => quickLink.to === link.to),
-      ),
-    [fullLinks, mobileQuickLinks],
-  );
-  const hasMobileMoreLinks = mobileMoreLinks.length > 0;
-
-  useEffect(() => {
-    setMobileSheetOpen(false);
-  }, [location.pathname]);
 
   if (!isStravaConnected) {
     return (
@@ -110,7 +206,7 @@ export function AppLayout() {
   const desktopNavContent = (
     <nav className='grid grid-cols-1 gap-1'>
       {fullLinks.map((link) => {
-        const active = location.pathname.startsWith(link.to);
+        const active = isActivePath(location.pathname, link.to);
         return (
           <Link
             className={`block truncate rounded-xl px-3 py-2 text-sm transition ${
@@ -118,7 +214,6 @@ export function AppLayout() {
             }`}
             key={link.to}
             to={link.to}
-            onClick={() => setMobileSheetOpen(false)}
           >
             {link.label}
           </Link>
@@ -126,29 +221,6 @@ export function AppLayout() {
       })}
     </nav>
   );
-
-  const mobileSheetNavContent =
-    mobileMoreLinks.length > 0 ? (
-      <nav className='grid grid-cols-1 gap-1.5'>
-        {mobileMoreLinks.map((link) => {
-          const active = location.pathname.startsWith(link.to);
-          return (
-            <Link
-              className={`block rounded-xl px-3 py-2.5 text-sm transition ${
-                active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
-              }`}
-              key={link.to}
-              to={link.to}
-              onClick={() => setMobileSheetOpen(false)}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
-    ) : (
-      <p className='text-xs text-muted'>{t('common.noExtraSections')}</p>
-    );
 
   return (
     <div className='min-h-screen overflow-x-hidden bg-grain bg-[size:14px_14px]'>
@@ -159,42 +231,6 @@ export function AppLayout() {
             {t('common.athleteId')}: {user?.stravaAthleteId ?? t('common.notLinked')}
           </p>
         </header>
-
-        {mobileSheetOpen ? (
-          <>
-            <button
-              aria-label={t('layout.closePanelAria')}
-              className='fixed inset-0 z-40 bg-black/35 lg:hidden'
-              onClick={() => setMobileSheetOpen(false)}
-              type='button'
-            />
-            <section className='fixed inset-x-0 bottom-0 z-50 max-h-[76vh] rounded-t-2xl border border-black/10 bg-panel p-4 shadow-panel lg:hidden'>
-              <div className='mb-4 flex items-center justify-between gap-3'>
-                <div>
-                  <p className='text-sm font-semibold'>{t('layout.mobileMenuTitle')}</p>
-                  <p className='text-xs text-muted'>
-                    {t('layout.mobileMenuSubtitle')}
-                  </p>
-                </div>
-                <button
-                  className='inline-flex h-9 items-center justify-center rounded-lg border border-black/20 px-3 text-xs hover:bg-black/5'
-                  onClick={() => setMobileSheetOpen(false)}
-                  type='button'
-                >
-                  {t('layout.closePanelAria')}
-                </button>
-              </div>
-              {mobileSheetNavContent}
-              <button
-                className='mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-black/20 px-3 text-sm hover:bg-black/5'
-                onClick={logout}
-                type='button'
-              >
-                {t('common.logout')}
-              </button>
-            </section>
-          </>
-        ) : null}
 
         <div className='grid gap-4 sm:gap-6 lg:grid-cols-[250px_minmax(0,1fr)]'>
           <aside className='hidden min-w-0 rounded-2xl border border-black/10 bg-panel p-4 shadow-panel lg:sticky lg:top-6 lg:block lg:h-[calc(100vh-3rem)]'>
@@ -224,32 +260,27 @@ export function AppLayout() {
           <div
             className='grid gap-1'
             style={{
-              gridTemplateColumns: `repeat(${mobileQuickLinks.length + (hasMobileMoreLinks ? 1 : 0)}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${fullLinks.length}, minmax(0, 1fr))`,
             }}
           >
-            {mobileQuickLinks.map((link) => {
-              const active = location.pathname.startsWith(link.to);
+            {fullLinks.map((link) => {
+              const active = isActivePath(location.pathname, link.to);
               return (
                 <Link
-                  key={`quick-${link.to}`}
+                  key={`mobile-${link.to}`}
                   to={link.to}
-                  className={`inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[10px] font-medium leading-none whitespace-nowrap transition ${
+                  title={link.label}
+                  className={`inline-flex h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 transition ${
                     active ? 'bg-ink text-white' : 'text-ink hover:bg-black/5'
                   }`}
                 >
-                  {link.label}
+                  <NavIcon active={active} name={link.icon} />
+                  <span className='block w-full truncate text-center text-[9px] font-medium leading-none'>
+                    {link.label}
+                  </span>
                 </Link>
               );
             })}
-            {hasMobileMoreLinks ? (
-              <button
-                type='button'
-                onClick={() => setMobileSheetOpen(true)}
-                className='inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[10px] font-medium leading-none whitespace-nowrap text-ink transition hover:bg-black/5'
-              >
-                {t('common.more')}
-              </button>
-            ) : null}
           </div>
         </div>
       </nav>

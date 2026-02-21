@@ -66,6 +66,34 @@ const metrics = [
   { value: 'charge', label: 'Charge' },
 ];
 
+const metricLabelByValue: Record<string, string> = metrics.reduce(
+  (acc, metric) => {
+    acc[metric.value] = metric.label;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
+
+const matrixMobileShortLabelByValue: Record<string, string> = {
+  distance: 'Dist',
+  movingTime: 'Temps',
+  elevGain: 'D+',
+  avgSpeed: 'Vit moy',
+  maxSpeed: 'Vit max',
+  avgHR: 'FC moy',
+  maxHR: 'FC max',
+  avgWatts: 'W moy',
+  maxWatts: 'W max',
+  cadence: 'Cad',
+  strideLength: 'Foulee',
+  groundContactTime: 'GCT',
+  verticalOscillation: 'VOsc',
+  sufferScore: 'Suffer',
+  kilojoules: 'kJ',
+  calories: 'Cal',
+  charge: 'Charge',
+};
+
 const graphAuditBaseQuestion =
   "Agis comme un expert en sciences du sport et analyste de performance de haut niveau. Analyse les données de cette section avec une rigueur mathématique et scientifique sourcé par des documents prouvé et des thèses avec une neutralité absolue. Ton objectif est de produire un audit de performance et un rapport détaillé sans aucune complaisance (zéro 'sugar-coating') compare mes métriques aux autres athlètes similaires.";
 
@@ -209,19 +237,39 @@ export function CorrelationBuilderPage({
   const distanceColumnLabel = `Distance (${distanceUnitLabel(unitPreferences.distanceUnit)})`;
   const formatDistanceFromMeters = (distanceMeters: number) =>
     convertDistanceKm(distanceMeters / 1000, unitPreferences.distanceUnit).toFixed(2);
+  const resolvedMatrixVars = useMemo(
+    () => (matrixVars.length > 0 ? matrixVars : (data?.vars ?? [])),
+    [matrixVars, data],
+  );
+
+  const formatMatrixAxisLabel = (metricValue: string) => {
+    const fullLabel = metricLabelByValue[metricValue] ?? metricValue;
+    if (!isMobile) {
+      return fullLabel;
+    }
+    return matrixMobileShortLabelByValue[metricValue] ?? fullLabel;
+  };
+
+  const matrixChartMinWidth = isMobile ? Math.max(520, resolvedMatrixVars.length * 80) : 0;
+  const scatterChartMinWidth = isMobile ? 520 : 0;
 
   const matrixHighlights = useMemo(() => {
-    const vars = matrixVars.length > 0 ? matrixVars : (data?.vars ?? []);
-    if (vars.length === 0) {
+    if (resolvedMatrixVars.length === 0) {
       return [] as Array<{ x: string; y: string; r: number; n: number }>;
     }
 
     return (data?.matrix ?? [])
-      .filter((cell) => cell.value !== null && cell.x !== cell.y && vars.includes(cell.x) && vars.includes(cell.y))
+      .filter(
+        (cell) =>
+          cell.value !== null &&
+          cell.x !== cell.y &&
+          resolvedMatrixVars.includes(cell.x) &&
+          resolvedMatrixVars.includes(cell.y),
+      )
       .map((cell) => ({ x: cell.x, y: cell.y, r: cell.value as number, n: cell.n }))
       .sort((a, b) => Math.abs(b.r) - Math.abs(a.r))
       .slice(0, 8);
-  }, [data, matrixVars]);
+  }, [data, resolvedMatrixVars]);
 
   const baseAiContext = useMemo(
     () => ({
@@ -671,21 +719,27 @@ export function CorrelationBuilderPage({
         type: 'value',
         name: xAxisLabel,
         nameLocation: 'middle',
-        nameGap: 32,
+        nameGap: isMobile ? 26 : 32,
         min: xRange.min,
         max: xRange.max,
         scale: true,
-        axisLabel: { formatter: (value: number) => `${value}` },
+        axisLabel: {
+          formatter: (value: number) => `${value}`,
+          fontSize: isMobile ? 10 : 11,
+        },
       },
       yAxis: {
         type: 'value',
         name: yAxisLabel,
         nameLocation: 'middle',
-        nameGap: 52,
+        nameGap: isMobile ? 42 : 52,
         min: yRange.min,
         max: yRange.max,
         scale: true,
-        axisLabel: { formatter: (value: number) => `${value}` },
+        axisLabel: {
+          formatter: (value: number) => `${value}`,
+          fontSize: isMobile ? 10 : 11,
+        },
       },
       visualMap:
         colorVar && hasColor ?
@@ -701,14 +755,23 @@ export function CorrelationBuilderPage({
             inRange: {
               color: ['#1d4ed8', '#0ea5e9', '#22c55e', '#eab308', '#dc2626'],
             },
+            textStyle: {
+              fontSize: isMobile ? 10 : 11,
+            },
           }
         : undefined,
-      grid: { top: 24, left: 84, right: 32, bottom: 84, containLabel: true },
-      dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+      grid: {
+        top: 24,
+        left: isMobile ? 62 : 84,
+        right: isMobile ? 20 : 32,
+        bottom: isMobile ? 76 : 84,
+        containLabel: true,
+      },
+      dataZoom: [{ type: 'inside' }, ...(isMobile ? [] : [{ type: 'slider' }])],
       series: [
         {
           type: 'scatter',
-          symbolSize: 9,
+          symbolSize: isMobile ? 10 : 9,
           itemStyle: { opacity: 0.85 },
           encode: {
             x: 0,
@@ -757,28 +820,55 @@ export function CorrelationBuilderPage({
         : []),
       ],
     };
-  }, [data, colorVar, colorMeta, xMeta, yMeta, showTrend, xVar, yVar, unitPreferences]);
+  }, [data, colorVar, colorMeta, xMeta, yMeta, showTrend, xVar, yVar, unitPreferences, isMobile]);
 
   const matrixOption = useMemo(() => {
-    const vars = matrixVars.length > 0 ? matrixVars : (data?.vars ?? []);
-    if (vars.length === 0) {
+    if (resolvedMatrixVars.length === 0) {
       return null;
     }
 
     const matrix = (data?.matrix ?? []).filter(
       (cell) =>
-        vars.includes(cell.x) && vars.includes(cell.y) && cell.value !== null,
+        resolvedMatrixVars.includes(cell.x) &&
+        resolvedMatrixVars.includes(cell.y) &&
+        cell.value !== null,
     );
     return {
       tooltip: {
         formatter: (params: { data: [number, number, number, number] }) => {
           const [xIdx, yIdx, value, n] = params.data;
-          return `${vars[yIdx]} vs ${vars[xIdx]}<br/>r=${value.toFixed(3)} / n=${n}`;
+          const xVarName = resolvedMatrixVars[xIdx];
+          const yVarName = resolvedMatrixVars[yIdx];
+          const xLabel = metricLabelByValue[xVarName] ?? xVarName;
+          const yLabel = metricLabelByValue[yVarName] ?? yVarName;
+          return `${yLabel} vs ${xLabel}<br/>r=${value.toFixed(3)} / n=${n}`;
         },
       },
-      grid: { top: 28, left: 72, right: 24, bottom: 48 },
-      xAxis: { type: 'category', data: vars, axisLabel: { rotate: 35 } },
-      yAxis: { type: 'category', data: vars },
+      grid: {
+        top: isMobile ? 36 : 28,
+        left: isMobile ? 70 : 72,
+        right: isMobile ? 16 : 24,
+        bottom: isMobile ? 92 : 48,
+      },
+      xAxis: {
+        type: 'category',
+        data: resolvedMatrixVars,
+        axisLabel: {
+          rotate: isMobile ? 52 : 35,
+          interval: 0,
+          fontSize: isMobile ? 10 : 11,
+          hideOverlap: true,
+          formatter: (value: string) => formatMatrixAxisLabel(value),
+        },
+      },
+      yAxis: {
+        type: 'category',
+        data: resolvedMatrixVars,
+        axisLabel: {
+          fontSize: isMobile ? 10 : 11,
+          formatter: (value: string) => formatMatrixAxisLabel(value),
+        },
+      },
       visualMap: {
         min: -1,
         max: 1,
@@ -791,6 +881,9 @@ export function CorrelationBuilderPage({
         inRange: {
           color: ['#1d4ed8', '#0ea5e9', '#22c55e', '#eab308', '#dc2626'],
         },
+        textStyle: {
+          fontSize: isMobile ? 10 : 11,
+        },
       },
       series: [
         {
@@ -801,8 +894,8 @@ export function CorrelationBuilderPage({
             value: 2,
           },
           data: matrix.map((cell) => [
-            vars.indexOf(cell.x),
-            vars.indexOf(cell.y),
+            resolvedMatrixVars.indexOf(cell.x),
+            resolvedMatrixVars.indexOf(cell.y),
             cell.value as number,
             cell.n,
           ]),
@@ -813,7 +906,7 @@ export function CorrelationBuilderPage({
         },
       ],
     };
-  }, [data, matrixVars]);
+  }, [data, resolvedMatrixVars, isMobile]);
 
   const handlePointClick = async (params: {
     data: [
@@ -1490,13 +1583,18 @@ export function CorrelationBuilderPage({
                 }}
               />
             </div>
-            <ReactECharts
-              option={scatterOption}
-              style={{ height: 560 }}
-              onEvents={{
-                click: handlePointClick,
-              }}
-            />
+            <div className={isMobile ? 'overflow-x-auto pb-1' : ''}>
+              <ReactECharts
+                option={scatterOption}
+                style={{
+                  height: isMobile ? 520 : 560,
+                  minWidth: scatterChartMinWidth,
+                }}
+                onEvents={{
+                  click: handlePointClick,
+                }}
+              />
+            </div>
           </>
         }
       </Card>
@@ -1604,7 +1702,15 @@ export function CorrelationBuilderPage({
               </div>
             </div>
             {matrixOption ?
-              <ReactECharts option={matrixOption} style={{ height: 420 }} />
+              <div className={isMobile ? 'overflow-x-auto pb-1' : ''}>
+                <ReactECharts
+                  option={matrixOption}
+                  style={{
+                    height: isMobile ? 460 : 420,
+                    minWidth: matrixChartMinWidth,
+                  }}
+                />
+              </div>
             : <p className='text-xs text-muted'>
                 Selectionne des variables pour la matrice.
               </p>
