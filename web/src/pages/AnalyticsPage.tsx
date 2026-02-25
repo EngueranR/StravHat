@@ -1159,7 +1159,7 @@ function classifyTsbState(tsb: number): DayStateStatus {
     : 100 - (5 - tsb) * 2.8;
   return dayStateFromScore(
     score,
-    `TSB ${number(tsb, 1)} pts. Score(0-100) = 100 autour de TSB +5, puis baisse en s'eloignant.`,
+    `Fraicheur = TSB = CTL - ATL. Ici TSB = ${number(tsb, 1)} pts. En pratique: TSB > 0 = reserve correcte, TSB < 0 = fatigue residuelle. Score utilise: si TSB >= +5, score = 100 - (TSB - 5) x 2; sinon score = 100 - (5 - TSB) x 2.8.`,
   );
 }
 
@@ -1177,13 +1177,13 @@ function classifyAtlState(atl: number, ctl: number): DayStateStatus {
 
     return dayStateFromScore(
       score,
-      `ATL/CTL = ${number(ratio, 2)} (${number(ratio * 100, 0)}%). Zone cible ~0.85 a 1.05.`,
+      `Fatigue = ATL (moyenne exponentielle 7 jours). Ratio utilise: ATL/CTL = ${number(ratio, 2)} (${number(ratio * 100, 0)}%). Lecture simple: 1.00 = fatigue recente proche de ta forme de fond; > 1.10 = fatigue qui monte; < 0.90 = fatigue faible.`,
     );
   }
 
   return dayStateFromScore(
     100 - atl * 4,
-    `ATL ${number(atl, 1)} pts (mode simplifie sans ratio ATL/CTL).`,
+    `Fatigue = ATL = ${number(atl, 1)} pts (mode simplifie sans ratio ATL/CTL).`,
   );
 }
 
@@ -1200,13 +1200,13 @@ function classifyChargeState(charge: number, ctl: number): DayStateStatus {
 
     return dayStateFromScore(
       score,
-      `Charge/CTL = ${number(ratio, 2)} (${number(ratio * 100, 0)}%). Zone cible ~0.80 a 1.10.`,
+      `Charge du jour comparee a ta forme: Charge/CTL = ${number(ratio, 2)} (${number(ratio * 100, 0)}%). Lecture simple: ~1.00 = dose adaptee; > 1.10 = charge agressive; < 0.80 = jour leger.`,
     );
   }
 
   return dayStateFromScore(
     100 - charge * 4,
-    `Charge ${number(charge, 1)} pts (mode simplifie sans ratio Charge/CTL).`,
+    `Charge du jour = ${number(charge, 1)} pts (mode simplifie sans ratio Charge/CTL).`,
   );
 }
 
@@ -1215,7 +1215,7 @@ function classifyCtlState(ctl: number, history: number[]): DayStateStatus {
   if (validHistory.length < 6) {
     return dayStateFromScore(
       50,
-      `CTL ${number(ctl, 1)} pts. Historique CTL insuffisant (< 6 points) pour un score precis.`,
+      `Forme = CTL (moyenne exponentielle 42 jours) = ${number(ctl, 1)} pts. Historique CTL insuffisant (< 6 points) pour un score precis.`,
     );
   }
 
@@ -1224,14 +1224,14 @@ function classifyCtlState(ctl: number, history: number[]): DayStateStatus {
   if (rank === null) {
     return dayStateFromScore(
       50,
-      `CTL ${number(ctl, 1)} pts. Percentile perso indisponible.`,
+      `Forme = CTL = ${number(ctl, 1)} pts. Percentile perso indisponible.`,
     );
   }
 
   const score = rank * 100;
   return dayStateFromScore(
     score,
-    `CTL ${number(ctl, 1)} pts. Score base sur ton percentile personnel (${number(score, 0)}e/100).`,
+    `Forme = CTL (42 jours) = ${number(ctl, 1)} pts. Score base sur ton percentile personnel (${number(score, 0)}e/100): plus CTL est haut vs ton historique, plus ton score de forme monte.`,
   );
 }
 
@@ -2546,9 +2546,13 @@ export function AnalyticsPage() {
         fatigueStatus.score * 0.25 +
         fraicheurStatus.score * 0.4,
     );
+    const globalExplanation =
+      `Score global = (Charge ${number(chargeStatus.score, 0)} x 20%) + (Forme ${number(formeStatus.score, 0)} x 15%) + (Fatigue ${number(fatigueStatus.score, 0)} x 25%) + (Fraicheur ${number(fraicheurStatus.score, 0)} x 40%) = ${number(globalScore, 0)}%. ` +
+      `Valeurs brutes du jour: Charge ${number(row.charge, 1)} pts, CTL ${number(row.ctl, 1)} pts, ATL ${number(row.atl, 1)} pts, TSB ${number(row.tsb, 1)} pts. ` +
+      `Definitions: CTL = forme (EMA 42j), ATL = fatigue (EMA 7j), TSB = CTL - ATL. Difference cle: la forme (CTL) monte/descend lentement, la fraicheur (TSB) peut varier vite selon les derniers jours.`;
     const globalStatus = dayStateFromScore(
       globalScore,
-      `Score global = 20% charge + 15% forme + 25% fatigue + 40% fraicheur.`,
+      globalExplanation,
     );
     const freshnessLabel =
       globalScore >= 85 ? 'Etat optimal'
@@ -5334,7 +5338,7 @@ export function AnalyticsPage() {
                 infoHint={{
                   title: 'Etat du jour',
                   description:
-                    "Lecture simplifiee en score 0-100% (0 = tres mauvais, 100 = excellent). Les scores sont calcules a partir des metriques CTL/ATL/TSB: CTL = forme (EMA 42j), ATL = fatigue (EMA 7j), TSB = CTL - ATL. Le score global combine charge (20%), forme (15%), fatigue (25%) et fraicheur (40%).",
+                    "Lecture simplifiee en score 0-100% (0 = tres mauvais, 100 = excellent). Base de calcul: CTL = forme de fond (EMA 42j), ATL = fatigue recente (EMA 7j), TSB = CTL - ATL = fraicheur. Formule EMA: EMA_jour = charge_jour x alpha + EMA_veille x (1 - alpha), avec alpha = 2/(N+1), N=42 pour CTL et N=7 pour ATL. Forme vs fraicheur: la forme de fond evolue lentement, la fraicheur bouge vite selon la charge recente. Score global: charge 20% + forme 15% + fatigue 25% + fraicheur 40%.",
                   linkHref: 'https://pubmed.ncbi.nlm.nih.gov/24410871/',
                   linkLabel: 'Source: CTL/ATL/TSB et monitoring charge',
                 }}
@@ -5365,6 +5369,11 @@ export function AnalyticsPage() {
                     {number(todayLoadSummary.forme, 1)} pts · ATL{' '}
                     {number(todayLoadSummary.fatigue, 1)} pts · TSB{' '}
                     {number(todayLoadSummary.fraicheur, 1)} pts.
+                  </p>
+                  <p className='mb-3 text-xs text-muted'>
+                    Difference cle: Forme (CTL) = niveau construit sur ~6 semaines. Fraicheur
+                    (TSB) = etat du jour, sensible aux derniers entrainements. Tu peux donc avoir
+                    une bonne forme avec une faible fraicheur.
                   </p>
                   <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-5'>
                     <StatCard
