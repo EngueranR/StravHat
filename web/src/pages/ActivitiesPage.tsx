@@ -9,6 +9,7 @@ import { SectionHeader } from "../components/SectionHeader";
 import {
   checkboxPillClass,
   inputClass,
+  primaryButtonClass,
   secondaryButtonCompactClass,
   selectClass,
 } from "../components/ui";
@@ -112,6 +113,21 @@ export function ActivitiesPage() {
         description={t("pages.activities.description")}
         title={t("pages.activities.title")}
       />
+      <div className="mb-4">
+        <Card>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Import Strava rapide</p>
+              <p className="text-xs text-muted">
+                Si tes activites ne sont pas a jour, relance un import en 1 clic.
+              </p>
+            </div>
+            <Link className={primaryButtonClass} to="/settings#import-center">
+              Importer mes donnees
+            </Link>
+          </div>
+        </Card>
+      </div>
       <Card>
         <SectionHeader
           title="Filtres activites"

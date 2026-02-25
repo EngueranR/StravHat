@@ -596,122 +596,124 @@ export function SettingsPage() {
             }
           </Card>
 
-        <Card>
-          <SectionHeader
-            title='Import Strava'
-            subtitle='Recupere les seances de course a pied puis met a jour la base locale'
-            infoHint={{
-              title: 'Import',
-              description:
-                "L'import lit les pages Strava (200 activites/page), garde seulement la course a pied, puis met a jour les activites existantes.",
-            }}
-            collapsed={collapsedSections.importCenter}
-            onToggleCollapse={() =>
-              setCollapsedSections((prev) => ({
-                ...prev,
-                importCenter: !prev.importCenter,
-              }))
-            }
-          />
-          {collapsedSections.importCenter ?
-            <p className='text-xs text-muted'>Section repliee.</p>
-          : <div className='space-y-4'>
-              <p className='text-sm text-muted'>
-                Lance l&apos;import pour synchroniser tes seances de course a
-                pied depuis Strava.
-              </p>
-
-              <button
-                className={primaryButtonClass}
-                disabled={importRunning}
-                onClick={() => {
-                  void launchImport();
-                }}
-                type='button'
-              >
-                {importRunning ? 'Import en cours...' : 'Lancer import'}
-              </button>
-
-              {importRunning ?
-                <div className={`${subtlePanelClass} space-y-3`}>
-                  <div className='flex items-center gap-2 text-sm'>
-                    <span className='inline-flex h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-ink' />
-                    <span>Import en cours ({importElapsedSeconds}s)</span>
-                  </div>
-                  <ul className='space-y-1 text-xs'>
-                    {importStepLabels.map((label, index) => {
-                      const done = index < importActiveStepIndex;
-                      const active = index === importActiveStepIndex;
-                      return (
-                        <li className='flex items-center gap-2' key={label}>
-                          <span
-                            className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] ${
-                              done ?
-                                'border-emerald-700 bg-emerald-700 text-white'
-                              : active ?
-                                'border-ink bg-ink text-white'
-                              : 'border-black/20 bg-white text-muted'
-                            }`}
-                          >
-                            {done ? '✓' : index + 1}
-                          </span>
-                          <span
-                            className={
-                              active ?
-                                'text-ink'
-                              : done ?
-                                'text-emerald-700'
-                              : 'text-muted'
-                            }
-                          >
-                            {label}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              : null}
-
-              {!importResult && !importError && !importRunning ?
-                <p className='text-xs text-muted'>
-                  Aucun import lance pour le moment.
+        <div id='import-center' className='scroll-mt-24'>
+          <Card>
+            <SectionHeader
+              title='Import Strava'
+              subtitle='Recupere les seances de course a pied puis met a jour la base locale'
+              infoHint={{
+                title: 'Import',
+                description:
+                  "L'import lit les pages Strava (200 activites/page), garde seulement la course a pied, puis met a jour les activites existantes.",
+              }}
+              collapsed={collapsedSections.importCenter}
+              onToggleCollapse={() =>
+                setCollapsedSections((prev) => ({
+                  ...prev,
+                  importCenter: !prev.importCenter,
+                }))
+              }
+            />
+            {collapsedSections.importCenter ?
+              <p className='text-xs text-muted'>Section repliee.</p>
+            : <div className='space-y-4'>
+                <p className='text-sm text-muted'>
+                  Lance l&apos;import pour synchroniser tes seances de course a
+                  pied depuis Strava.
                 </p>
-              : null}
 
-              {importResult ?
-                <div className={`${subtlePanelClass} space-y-2 text-sm`}>
-                  <p>Pages importees: {importResult.pages}</p>
-                  <p>Activites mises a jour: {importResult.imported}</p>
-                  <div className='rounded-lg border border-black/10 bg-white/70 p-2 text-xs text-muted'>
-                    <p className='font-medium text-ink'>Actions API effectuees</p>
-                    <p>1. Authentification et verification du token: OK</p>
-                    <p>
-                      2. Lecture API Strava: {importResult.pages} page(s)
-                      traitee(s)
-                    </p>
-                    <p>
-                      3. Filtre course a pied + upsert base locale:{' '}
-                      {importResult.imported} element(s)
-                    </p>
+                <button
+                  className={primaryButtonClass}
+                  disabled={importRunning}
+                  onClick={() => {
+                    void launchImport();
+                  }}
+                  type='button'
+                >
+                  {importRunning ? 'Import en cours...' : 'Lancer import'}
+                </button>
+
+                {importRunning ?
+                  <div className={`${subtlePanelClass} space-y-3`}>
+                    <div className='flex items-center gap-2 text-sm'>
+                      <span className='inline-flex h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-ink' />
+                      <span>Import en cours ({importElapsedSeconds}s)</span>
+                    </div>
+                    <ul className='space-y-1 text-xs'>
+                      {importStepLabels.map((label, index) => {
+                        const done = index < importActiveStepIndex;
+                        const active = index === importActiveStepIndex;
+                        return (
+                          <li className='flex items-center gap-2' key={label}>
+                            <span
+                              className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] ${
+                                done ?
+                                  'border-emerald-700 bg-emerald-700 text-white'
+                                : active ?
+                                  'border-ink bg-ink text-white'
+                                : 'border-black/20 bg-white text-muted'
+                              }`}
+                            >
+                              {done ? '✓' : index + 1}
+                            </span>
+                            <span
+                              className={
+                                active ?
+                                  'text-ink'
+                                : done ?
+                                  'text-emerald-700'
+                                : 'text-muted'
+                              }
+                            >
+                              {label}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
-                  <div className='flex flex-wrap gap-2'>
-                    <Link className={secondaryButtonClass} to='/activities'>
-                      Voir mes activites
-                    </Link>
-                    {user?.hasImportedActivities ?
-                      <Link className={secondaryButtonClass} to='/analytics'>
-                        Ouvrir les analyses
+                : null}
+
+                {!importResult && !importError && !importRunning ?
+                  <p className='text-xs text-muted'>
+                    Aucun import lance pour le moment.
+                  </p>
+                : null}
+
+                {importResult ?
+                  <div className={`${subtlePanelClass} space-y-2 text-sm`}>
+                    <p>Pages importees: {importResult.pages}</p>
+                    <p>Activites mises a jour: {importResult.imported}</p>
+                    <div className='rounded-lg border border-black/10 bg-white/70 p-2 text-xs text-muted'>
+                      <p className='font-medium text-ink'>Actions API effectuees</p>
+                      <p>1. Authentification et verification du token: OK</p>
+                      <p>
+                        2. Lecture API Strava: {importResult.pages} page(s)
+                        traitee(s)
+                      </p>
+                      <p>
+                        3. Filtre course a pied + upsert base locale:{' '}
+                        {importResult.imported} element(s)
+                      </p>
+                    </div>
+                    <div className='flex flex-wrap gap-2'>
+                      <Link className={secondaryButtonClass} to='/activities'>
+                        Voir mes activites
                       </Link>
-                    : null}
+                      {user?.hasImportedActivities ?
+                        <Link className={secondaryButtonClass} to='/analytics'>
+                          Ouvrir les analyses
+                        </Link>
+                      : null}
+                    </div>
                   </div>
-                </div>
-              : null}
+                : null}
 
-              {importError ? <p className='text-sm text-red-700'>{importError}</p> : null}
-            </div>
-          }
-        </Card>
+                {importError ? <p className='text-sm text-red-700'>{importError}</p> : null}
+              </div>
+            }
+          </Card>
+        </div>
 
         <Card>
             <SectionHeader
